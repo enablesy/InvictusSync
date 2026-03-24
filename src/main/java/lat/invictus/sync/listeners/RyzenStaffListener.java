@@ -161,24 +161,24 @@ public class RyzenStaffListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onChat(AsyncPlayerChatEvent event) {
-        if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
-        if (ryzen == null) return;
-        Player player = event.getPlayer();
-        try {
-            plugin.getLogger().info("[InvictusSync DEBUG] Chat de: " + player.getName());
-            plugin.getLogger().info("[InvictusSync DEBUG] isAdminChatMode: " + new RyzenStaffApi(ryzen).isAdminChatMode(player));
-            String[] keys = {"staffchat", "staff_chat", "StaffChat", "staff-chat", "adminchat", "admin_chat", "AdminChat"};
-            for (String key : keys) {
-                if (player.hasMetadata(key)) {
-                    plugin.getLogger().info("[InvictusSync DEBUG] hasMetadata TRUE: " + key);
-                }
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+public void onChat(AsyncPlayerChatEvent event) {
+    if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
+    if (ryzen == null) return;
+    Player player = event.getPlayer();
+    try {
+        plugin.getLogger().info("[InvictusSync DEBUG] Chat de: " + player.getName() + " | cancelado: " + event.isCancelled());
+        plugin.getLogger().info("[InvictusSync DEBUG] isAdminChatMode: " + new RyzenStaffApi(ryzen).isAdminChatMode(player));
+        String[] keys = {"staffchat", "staff_chat", "StaffChat", "staff-chat", "adminchat", "admin_chat", "AdminChat"};
+        for (String key : keys) {
+            if (player.hasMetadata(key)) {
+                plugin.getLogger().info("[InvictusSync DEBUG] hasMetadata TRUE: " + key);
             }
-        } catch (Exception e) {
-            plugin.getLogger().warning("[InvictusSync DEBUG] Error: " + e.getMessage());
         }
+    } catch (Exception e) {
+        plugin.getLogger().warning("[InvictusSync DEBUG] Error: " + e.getMessage());
     }
+}
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
