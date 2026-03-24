@@ -4,6 +4,7 @@ import lat.invictus.sync.InvictusSync;
 import lat.invictus.sync.http.WorkerClient;
 
 import dev.imshadow.RyzenStaff;
+import dev.imshadow.API.RyzenStaffApi;
 import dev.imshadow.StaffSystem.StaffSystem;
 
 import org.bukkit.Bukkit;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -128,13 +130,12 @@ public class RyzenStaffListener implements Listener {
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName())));
                 break;
 
-            // ── FREEZE (toggle — mismo comando para congelar y descongelar) ──
+            // ── FREEZE (toggle) ──
             case "freeze": case "fr":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
                 String freezeTarget = parts[1];
-                UUID targetUuid = null;
                 Player targetPlayer = Bukkit.getPlayer(freezeTarget);
-                if (targetPlayer != null) targetUuid = targetPlayer.getUniqueId();
+                UUID targetUuid = targetPlayer != null ? targetPlayer.getUniqueId() : UUID.nameUUIDFromBytes(freezeTarget.getBytes());
                 boolean wasFrozen = freezeState.getOrDefault(targetUuid, false);
                 if (wasFrozen) {
                     freezeState.put(targetUuid, false);
@@ -151,24 +152,6 @@ public class RyzenStaffListener implements Listener {
                 }
                 break;
 
-            // ── STAFF CHAT ──
-            case "sc": case "staffchat":
-                if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(joinFrom(parts, 1))));
-                break;
-
-            // ── ADMIN CHAT ──
-            case "ac": case "adminchat":
-                if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(joinFrom(parts, 1))));
-                break;
-
             // ── REPORTS ──
             case "report":
                 if (!plugin.getConfig().getBoolean("sync.reports", true) || parts.length < 3) return;
@@ -180,6 +163,29 @@ public class RyzenStaffListener implements Listener {
                     WorkerClient.esc(parts[1]), reportedUuid,
                     WorkerClient.esc(joinFrom(parts, 2))));
                 break;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onChat(AsyncPlayerChatEvent event) {
+        if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
+        if (ryzen == null) return;
+        Player player = event.getPlayer();
+        try {
+            RyzenStaffApi api = new RyzenStaffApi(ryzen);
+            if (api.isAdminChatMode(player)) {
+                client.post("/mc/activity", String.format(
+                    "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
+                    WorkerClient.esc(player.getName()), player.getUniqueId(),
+                    WorkerClient.esc(event.getMessage())));
+            } else if (api.isStaffChatMode(player)) {
+                client.post("/mc/activity", String.format(
+                    "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
+                    WorkerClient.esc(player.getName()), player.getUniqueId(),
+                    WorkerClient.esc(event.getMessage())));
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error en chat listener: " + e.getMessage());
         }
     }
 
