@@ -64,7 +64,7 @@ public class RyzenStaffListener implements Listener {
         }, 40L, 40L);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         String msg = event.getMessage().toLowerCase();
         Player player = event.getPlayer();
