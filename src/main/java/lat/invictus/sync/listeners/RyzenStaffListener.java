@@ -13,6 +13,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -161,8 +162,9 @@ public class RyzenStaffListener implements Listener {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onChat(AsyncPlayerChatEvent event) {
+    public void onChat(PlayerChatEvent event) {
         if (!event.isCancelled()) return;
         if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
         if (ryzen == null) return;
