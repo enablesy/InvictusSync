@@ -162,28 +162,29 @@ public class RyzenStaffListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-public void onChat(AsyncPlayerChatEvent event) {
-    if (!event.isCancelled()) return;
-    Player player = event.getPlayer();
-    plugin.getLogger().info("[DEBUG] === METADATA DE " + player.getName() + " ===");
-    // Bukkit no tiene forma directa de listar todas las keys de metadata
-    // así que probamos una lista más extensa
-    String[] keys = {
-        "staffchat","staff_chat","StaffChat","staff-chat","sc","SC",
-        "adminchat","admin_chat","AdminChat","admin-chat","ac","AC",
-        "ryzenstaff_staffchat","ryzenstaff_adminchat",
-        "chat_mode","chatmode","chat-mode","staffMode","staff_mode"
-    };
-    for (String key : keys) {
-        if (player.hasMetadata(key)) {
-            plugin.getLogger().info("[DEBUG] METADATA TRUE: " + key + " = " + player.getMetadata(key).get(0).asString());
+    public void onChat(AsyncPlayerChatEvent event) {
+        if (!event.isCancelled()) return;
+        if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
+        if (ryzen == null) return;
+        Player player = event.getPlayer();
+        try {
+            plugin.getLogger().info("[DEBUG] === METADATA DE " + player.getName() + " ===");
+            String[] keys = {
+                "staffchat","staff_chat","StaffChat","staff-chat","sc","SC",
+                "adminchat","admin_chat","AdminChat","admin-chat","ac","AC",
+                "ryzenstaff_staffchat","ryzenstaff_adminchat",
+                "chat_mode","chatmode","chat-mode","staffMode","staff_mode"
+            };
+            for (String key : keys) {
+                if (player.hasMetadata(key)) {
+                    plugin.getLogger().info("[DEBUG] METADATA TRUE: " + key + " = " + player.getMetadata(key).get(0).asString());
+                }
+            }
+            plugin.getLogger().info("[DEBUG] isAdminChatMode: " + new RyzenStaffApi(ryzen).isAdminChatMode(player));
+        } catch (Exception e) {
+            plugin.getLogger().warning("[DEBUG] Error: " + e.getMessage());
         }
     }
-}
-    } catch (Exception e) {
-        plugin.getLogger().warning("[InvictusSync DEBUG] Error: " + e.getMessage());
-    }
-}
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
