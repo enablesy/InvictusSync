@@ -75,7 +75,6 @@ public class RyzenStaffListener implements Listener {
         String cmd = parts[0].replace("/", "");
 
         switch (cmd) {
-            // ── SANCTIONS ──
             case "ban": case "tempban":
                 if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
                 client.post("/mc/sanction", String.format(
@@ -129,8 +128,6 @@ public class RyzenStaffListener implements Listener {
                     "{\"type\":\"unjail\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"Liberado de jail\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName())));
                 break;
-
-            // ── FREEZE (toggle) ──
             case "freeze": case "fr":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
                 String freezeTarget = parts[1];
@@ -151,8 +148,6 @@ public class RyzenStaffListener implements Listener {
                         WorkerClient.esc(freezeTarget), WorkerClient.esc(freezeTarget)));
                 }
                 break;
-
-            // ── REPORTS ──
             case "report":
                 if (!plugin.getConfig().getBoolean("sync.reports", true) || parts.length < 3) return;
                 Player reportedPlayer = Bukkit.getPlayer(parts[1]);
@@ -172,20 +167,16 @@ public class RyzenStaffListener implements Listener {
         if (ryzen == null) return;
         Player player = event.getPlayer();
         try {
-            RyzenStaffApi api = new RyzenStaffApi(ryzen);
-            if (api.isAdminChatMode(player)) {
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(event.getMessage())));
-            } else if (player.hasMetadata("staffchat")) {
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(event.getMessage())));
+            plugin.getLogger().info("[InvictusSync DEBUG] Chat de: " + player.getName());
+            plugin.getLogger().info("[InvictusSync DEBUG] isAdminChatMode: " + new RyzenStaffApi(ryzen).isAdminChatMode(player));
+            String[] keys = {"staffchat", "staff_chat", "StaffChat", "staff-chat", "adminchat", "admin_chat", "AdminChat"};
+            for (String key : keys) {
+                if (player.hasMetadata(key)) {
+                    plugin.getLogger().info("[InvictusSync DEBUG] hasMetadata TRUE: " + key);
+                }
             }
         } catch (Exception e) {
-            plugin.getLogger().warning("Error en chat listener: " + e.getMessage());
+            plugin.getLogger().warning("[InvictusSync DEBUG] Error: " + e.getMessage());
         }
     }
 
