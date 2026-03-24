@@ -1,0 +1,12 @@
+name: InvictusSync
+version: 1.0.0
+main: lat.invictus.sync.InvictusSync
+api-version: 1.20
+author: INVICTUS Network
+description: Sincroniza eventos del servidor con el Staff Portal de INVICTUS
+
+commands:
+  invictussync:
+    description: Recarga la configuracion de InvictusSync
+    usage: /invictussync reload
+    permission: invictussync.admin

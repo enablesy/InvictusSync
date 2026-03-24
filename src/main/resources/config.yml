@@ -1,0 +1,13 @@
+# InvictusSync Configuration
+worker-url: "https://invictus-staff-auth.invictusnetwork11.workers.dev"
+mc-token: "invictus_mc_sync_2026"
+
+# Intervalo en segundos para enviar el estado del servidor (TPS, jugadores, RAM)
+status-interval: 30
+
+# Eventos a sincronizar (true/false)
+sync:
+  reports: true
+  sanctions: true
+  activity: true
+  status: true
