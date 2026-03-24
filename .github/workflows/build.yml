@@ -23,7 +23,7 @@ jobs:
         run: mvn package -DskipTests
 
       - name: Subir JAR compilado
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: InvictusSync
           path: target/InvictusSync-1.0.0.jar
