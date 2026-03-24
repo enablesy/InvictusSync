@@ -17,28 +17,21 @@ public class InvictusSync extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
-
         workerClient = new WorkerClient(this);
-
-        // Register RyzenStaff event listener
         getServer().getPluginManager().registerEvents(new RyzenStaffListener(this), this);
-
-        // Start status task
         if (getConfig().getBoolean("sync.status", true)) {
-            int interval = getConfig().getInt("status-interval", 30) * 20; // ticks
+            int interval = getConfig().getInt("status-interval", 30) * 20;
             statusTask = new StatusTask(this);
             statusTask.runTaskTimerAsynchronously(this, 100L, interval);
         }
-
         getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
     }
 
     @Override
-public void onDisable() {
-    if (statusTask != null) statusTask.cancel();
-    if (workerClient != null) workerClient.shutdown();
-    getLogger().info("InvictusSync deshabilitado.");
-}
+    public void onDisable() {
+        if (statusTask != null) statusTask.cancel();
+        if (workerClient != null) workerClient.shutdown();
+        getLogger().info("InvictusSync deshabilitado.");
     }
 
     @Override
