@@ -12,8 +12,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.event.player.PlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -28,6 +26,8 @@ public class RyzenStaffListener implements Listener {
     private RyzenStaff ryzen;
     private final Map<UUID, Boolean> staffModeState = new HashMap<>();
     private final Map<UUID, Boolean> freezeState = new HashMap<>();
+    private final Map<UUID, Boolean> adminChatState = new HashMap<>();
+    private final Map<UUID, Boolean> staffChatState = new HashMap<>();
 
     public RyzenStaffListener(InvictusSync plugin) {
         this.plugin = plugin;
@@ -46,8 +46,11 @@ public class RyzenStaffListener implements Listener {
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             if (ryzen == null || !plugin.getConfig().getBoolean("sync.activity", true)) return;
             try {
+                RyzenStaffApi api = new RyzenStaffApi(ryzen);
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     UUID uuid = player.getUniqueId();
+
+                    // ── STAFF MODE ──
                     boolean inStaffMode = StaffSystem.isInStaffMode(player);
                     boolean wasInStaffMode = staffModeState.getOrDefault(uuid, false);
                     if (inStaffMode && !wasInStaffMode) {
@@ -61,6 +64,25 @@ public class RyzenStaffListener implements Listener {
                             "{\"type\":\"staffmode_off\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Salió del modo staff\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     }
+
+                    // ── ADMIN CHAT ──
+                    boolean inAdminChat = api.isAdminChatMode(player);
+                    boolean wasInAdminChat = adminChatState.getOrDefault(uuid, false);
+                    if (inAdminChat && !wasInAdminChat) {
+                        adminChatState.put(uuid, true);
+                        client.post("/mc/activity", String.format(
+                            "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Activó el admin chat\"}",
+                            WorkerClient.esc(player.getName()), uuid));
+                    } else if (!inAdminChat && wasInAdminChat) {
+                        adminChatState.put(uuid, false);
+                        client.post("/mc/activity", String.format(
+                            "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Desactivó el admin chat\"}",
+                            WorkerClient.esc(player.getName()), uuid));
+                    }
+
+                    // ── STAFF CHAT ──
+                    // RyzenStaff no expone isStaffChatMode en la API
+                    // lo detectamos via comando interceptado en onCommand
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("Error en polling: " + e.getMessage());
@@ -76,6 +98,7 @@ public class RyzenStaffListener implements Listener {
         String cmd = parts[0].replace("/", "");
 
         switch (cmd) {
+            // ── SANCTIONS ──
             case "ban": case "tempban":
                 if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
                 client.post("/mc/sanction", String.format(
@@ -129,6 +152,8 @@ public class RyzenStaffListener implements Listener {
                     "{\"type\":\"unjail\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"Liberado de jail\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName())));
                 break;
+
+            // ── FREEZE (toggle) ──
             case "freeze": case "fr":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
                 String freezeTarget = parts[1];
@@ -149,6 +174,26 @@ public class RyzenStaffListener implements Listener {
                         WorkerClient.esc(freezeTarget), WorkerClient.esc(freezeTarget)));
                 }
                 break;
+
+            // ── STAFF CHAT (toggle) ──
+            case "sc": case "staffchat":
+                if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
+                UUID scUuid = player.getUniqueId();
+                boolean wasInStaffChat = staffChatState.getOrDefault(scUuid, false);
+                if (wasInStaffChat) {
+                    staffChatState.put(scUuid, false);
+                    client.post("/mc/activity", String.format(
+                        "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Desactivó el staff chat\"}",
+                        WorkerClient.esc(player.getName()), scUuid));
+                } else {
+                    staffChatState.put(scUuid, true);
+                    client.post("/mc/activity", String.format(
+                        "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Activó el staff chat\"}",
+                        WorkerClient.esc(player.getName()), scUuid));
+                }
+                break;
+
+            // ── REPORTS ──
             case "report":
                 if (!plugin.getConfig().getBoolean("sync.reports", true) || parts.length < 3) return;
                 Player reportedPlayer = Bukkit.getPlayer(parts[1]);
@@ -162,37 +207,13 @@ public class RyzenStaffListener implements Listener {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onChat(PlayerChatEvent event) {
-        if (!event.isCancelled()) return;
-        if (!plugin.getConfig().getBoolean("sync.activity", true)) return;
-        if (ryzen == null) return;
-        Player player = event.getPlayer();
-        try {
-            plugin.getLogger().info("[DEBUG] === METADATA DE " + player.getName() + " ===");
-            String[] keys = {
-                "staffchat","staff_chat","StaffChat","staff-chat","sc","SC",
-                "adminchat","admin_chat","AdminChat","admin-chat","ac","AC",
-                "ryzenstaff_staffchat","ryzenstaff_adminchat",
-                "chat_mode","chatmode","chat-mode","staffMode","staff_mode"
-            };
-            for (String key : keys) {
-                if (player.hasMetadata(key)) {
-                    plugin.getLogger().info("[DEBUG] METADATA TRUE: " + key + " = " + player.getMetadata(key).get(0).asString());
-                }
-            }
-            plugin.getLogger().info("[DEBUG] isAdminChatMode: " + new RyzenStaffApi(ryzen).isAdminChatMode(player));
-        } catch (Exception e) {
-            plugin.getLogger().warning("[DEBUG] Error: " + e.getMessage());
-        }
-    }
-
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         staffModeState.remove(uuid);
         freezeState.remove(uuid);
+        adminChatState.remove(uuid);
+        staffChatState.remove(uuid);
     }
 
     private String joinFrom(String[] parts, int from) {
