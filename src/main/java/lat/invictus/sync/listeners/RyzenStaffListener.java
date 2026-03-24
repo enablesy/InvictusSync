@@ -24,6 +24,7 @@ public class RyzenStaffListener implements Listener {
     private final WorkerClient client;
     private RyzenStaff ryzen;
     private final Map<UUID, Boolean> staffModeState = new HashMap<>();
+    private final Map<UUID, Boolean> freezeState = new HashMap<>();
 
     public RyzenStaffListener(InvictusSync plugin) {
         this.plugin = plugin;
@@ -126,22 +127,31 @@ public class RyzenStaffListener implements Listener {
                     "{\"type\":\"unjail\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"Liberado de jail\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName())));
                 break;
-            // ── FREEZE ──
-            case "freeze":
+
+            // ── FREEZE (toggle — mismo comando para congelar y descongelar) ──
+            case "freeze": case "fr":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"freeze\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"target\":\"%s\",\"detail\":\"Congeló a %s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(parts[1]), WorkerClient.esc(parts[1])));
+                String freezeTarget = parts[1];
+                UUID targetUuid = null;
+                Player targetPlayer = Bukkit.getPlayer(freezeTarget);
+                if (targetPlayer != null) targetUuid = targetPlayer.getUniqueId();
+                boolean wasFrozen = freezeState.getOrDefault(targetUuid, false);
+                if (wasFrozen) {
+                    freezeState.put(targetUuid, false);
+                    client.post("/mc/activity", String.format(
+                        "{\"type\":\"unfreeze\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"target\":\"%s\",\"detail\":\"Descongeló a %s\"}",
+                        WorkerClient.esc(player.getName()), player.getUniqueId(),
+                        WorkerClient.esc(freezeTarget), WorkerClient.esc(freezeTarget)));
+                } else {
+                    freezeState.put(targetUuid, true);
+                    client.post("/mc/activity", String.format(
+                        "{\"type\":\"freeze\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"target\":\"%s\",\"detail\":\"Congeló a %s\"}",
+                        WorkerClient.esc(player.getName()), player.getUniqueId(),
+                        WorkerClient.esc(freezeTarget), WorkerClient.esc(freezeTarget)));
+                }
                 break;
-            case "unfreeze":
-                if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
-                client.post("/mc/activity", String.format(
-                    "{\"type\":\"unfreeze\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"target\":\"%s\",\"detail\":\"Descongeló a %s\"}",
-                    WorkerClient.esc(player.getName()), player.getUniqueId(),
-                    WorkerClient.esc(parts[1]), WorkerClient.esc(parts[1])));
-                break;
-            // ── CHATS ──
+
+            // ── STAFF CHAT ──
             case "sc": case "staffchat":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
                 client.post("/mc/activity", String.format(
@@ -149,6 +159,8 @@ public class RyzenStaffListener implements Listener {
                     WorkerClient.esc(player.getName()), player.getUniqueId(),
                     WorkerClient.esc(joinFrom(parts, 1))));
                 break;
+
+            // ── ADMIN CHAT ──
             case "ac": case "adminchat":
                 if (!plugin.getConfig().getBoolean("sync.activity", true) || parts.length < 2) return;
                 client.post("/mc/activity", String.format(
@@ -156,6 +168,7 @@ public class RyzenStaffListener implements Listener {
                     WorkerClient.esc(player.getName()), player.getUniqueId(),
                     WorkerClient.esc(joinFrom(parts, 1))));
                 break;
+
             // ── REPORTS ──
             case "report":
                 if (!plugin.getConfig().getBoolean("sync.reports", true) || parts.length < 3) return;
@@ -172,7 +185,9 @@ public class RyzenStaffListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        staffModeState.remove(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        staffModeState.remove(uuid);
+        freezeState.remove(uuid);
     }
 
     private String joinFrom(String[] parts, int from) {
