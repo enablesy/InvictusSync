@@ -1,27 +1,30 @@
 package lat.invictus.sync.http;
 
 import lat.invictus.sync.InvictusSync;
-import org.bukkit.Bukkit;
 
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class WorkerClient {
 
     private final InvictusSync plugin;
     private String workerUrl;
     private String mcToken;
+    private final ExecutorService executor;
 
     public WorkerClient(InvictusSync plugin) {
         this.plugin = plugin;
         this.workerUrl = plugin.getConfig().getString("worker-url", "");
         this.mcToken = plugin.getConfig().getString("mc-token", "");
+        this.executor = Executors.newFixedThreadPool(4);
     }
 
     public void post(String endpoint, String json) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        executor.submit(() -> {
             try {
                 URL url = new URL(workerUrl + endpoint);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -29,8 +32,8 @@ public class WorkerClient {
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setRequestProperty("X-MC-Token", mcToken);
                 conn.setDoOutput(true);
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
 
                 try (OutputStream os = conn.getOutputStream()) {
                     os.write(json.getBytes(StandardCharsets.UTF_8));
@@ -47,7 +50,10 @@ public class WorkerClient {
         });
     }
 
-    // Escape basic JSON string
+    public void shutdown() {
+        executor.shutdown();
+    }
+
     public static String esc(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
