@@ -178,7 +178,7 @@ public class RyzenStaffListener implements Listener {
                     "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
                     WorkerClient.esc(player.getName()), player.getUniqueId(),
                     WorkerClient.esc(event.getMessage())));
-            } else if (api.isStaffChatMode(player)) {
+            } else if (player.hasMetadata("staffchat")) {
                 client.post("/mc/activity", String.format(
                     "{\"type\":\"staffchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"%s\"}",
                     WorkerClient.esc(player.getName()), player.getUniqueId(),
