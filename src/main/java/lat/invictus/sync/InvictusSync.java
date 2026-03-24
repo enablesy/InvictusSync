@@ -34,9 +34,11 @@ public class InvictusSync extends JavaPlugin {
     }
 
     @Override
-    public void onDisable() {
-        if (statusTask != null) statusTask.cancel();
-        getLogger().info("InvictusSync deshabilitado.");
+public void onDisable() {
+    if (statusTask != null) statusTask.cancel();
+    if (workerClient != null) workerClient.shutdown();
+    getLogger().info("InvictusSync deshabilitado.");
+}
     }
 
     @Override
