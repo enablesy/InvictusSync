@@ -29,6 +29,9 @@ public class RyzenStaffListener implements Listener {
     private final Map<UUID, Boolean> adminChatState = new HashMap<>();
     private final Map<UUID, Boolean> staffChatState = new HashMap<>();
 
+    // Contador para logs de debug (solo loguea cada N ticks para no spamear)
+    private int debugTick = 0;
+
     public RyzenStaffListener(InvictusSync plugin) {
         this.plugin = plugin;
         this.client = plugin.getWorkerClient();
@@ -45,47 +48,73 @@ public class RyzenStaffListener implements Listener {
     private void startPollingTask() {
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             if (ryzen == null || !plugin.getConfig().getBoolean("sync.activity", true)) return;
+            debugTick++;
+            boolean doDebug = (debugTick % 5 == 0); // log cada 5 ticks (~10s)
             try {
                 RyzenStaffApi api = new RyzenStaffApi(ryzen);
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     UUID uuid = player.getUniqueId();
 
                     // ── STAFF MODE ──
-                    boolean inStaffMode = StaffSystem.isInStaffMode(player);
+                    boolean inStaffMode;
+                    try {
+                        inStaffMode = StaffSystem.isInStaffMode(player);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("[InvictusSync] Error isInStaffMode(" + player.getName() + "): " + e.getMessage());
+                        continue;
+                    }
                     boolean wasInStaffMode = staffModeState.getOrDefault(uuid, false);
                     if (inStaffMode && !wasInStaffMode) {
                         staffModeState.put(uuid, true);
+                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " entró al modo staff.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"staffmode_on\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Entró al modo staff\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     } else if (!inStaffMode && wasInStaffMode) {
                         staffModeState.put(uuid, false);
+                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " salió del modo staff.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"staffmode_off\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Salió del modo staff\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     }
 
                     // ── ADMIN CHAT ──
-                    boolean inAdminChat = api.isAdminChatMode(player);
+                    boolean inAdminChat;
+                    try {
+                        inAdminChat = api.isAdminChatMode(player);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("[InvictusSync] Error isAdminChatMode(" + player.getName() + "): " + e.getMessage());
+                        continue;
+                    }
                     boolean wasInAdminChat = adminChatState.getOrDefault(uuid, false);
+
+                    // Debug: mostrar estado cada 5 ticks
+                    if (doDebug) {
+                        plugin.getLogger().info("[InvictusSync] DEBUG " + player.getName()
+                            + " | adminChat=" + inAdminChat + " (prev=" + wasInAdminChat + ")"
+                            + " | staffMode=" + inStaffMode);
+                    }
+
                     if (inAdminChat && !wasInAdminChat) {
                         adminChatState.put(uuid, true);
+                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " activó el admin chat.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Activó el admin chat\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     } else if (!inAdminChat && wasInAdminChat) {
                         adminChatState.put(uuid, false);
+                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " desactivó el admin chat.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Desactivó el admin chat\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     }
-
-                    // ── STAFF CHAT ──
-                    // RyzenStaff no expone isStaffChatMode en la API
-                    // lo detectamos via comando interceptado en onCommand
                 }
             } catch (Exception e) {
-                plugin.getLogger().warning("Error en polling: " + e.getMessage());
+                plugin.getLogger().warning("[InvictusSync] Error en polling: " + e.getClass().getName() + ": " + e.getMessage());
+                // Imprimir stack trace completo para diagnosticar
+                for (StackTraceElement el : e.getStackTrace()) {
+                    plugin.getLogger().warning("  at " + el.toString());
+                }
             }
         }, 40L, 40L);
     }
@@ -212,6 +241,8 @@ public class RyzenStaffListener implements Listener {
         UUID uuid = event.getPlayer().getUniqueId();
         staffModeState.remove(uuid);
         freezeState.remove(uuid);
+        // No borrar adminChatState ni staffChatState al desconectarse
+        // para evitar falsos positivos si RyzenStaff resetea el estado internamente
         adminChatState.remove(uuid);
         staffChatState.remove(uuid);
     }
