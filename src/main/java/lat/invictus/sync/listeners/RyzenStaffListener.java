@@ -133,12 +133,22 @@ public class RyzenStaffListener implements Listener {
 
         switch (cmd) {
             // ── SANCTIONS ──
-            case "ban": case "tempban":
-                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
+            case "ban":
+                // /ban <jugador> <razón...> — mínimo 3 partes
+                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 3) return;
                 client.post("/mc/sanction", String.format(
                     "{\"type\":\"ban\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"%s\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName()),
-                    WorkerClient.esc(parts.length >= 3 ? joinFrom(parts, 2) : "Sin razón")));
+                    WorkerClient.esc(joinFrom(parts, 2))));
+                break;
+            case "tempban":
+                // /tempban <jugador> <duración> <razón...> — mínimo 4 partes
+                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 4) return;
+                client.post("/mc/sanction", String.format(
+                    "{\"type\":\"ban\",\"target\":\"%s\",\"staff\":\"%s\",\"duration\":\"%s\",\"reason\":\"%s\"}",
+                    WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName()),
+                    WorkerClient.esc(parts[2]),
+                    WorkerClient.esc(joinFrom(parts, 3))));
                 break;
             case "unban":
                 if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
@@ -147,18 +157,29 @@ public class RyzenStaffListener implements Listener {
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName())));
                 break;
             case "kick":
-                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
+                // /kick <jugador> <razón...> — mínimo 3 partes
+                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 3) return;
                 client.post("/mc/sanction", String.format(
                     "{\"type\":\"kick\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"%s\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName()),
-                    WorkerClient.esc(parts.length >= 3 ? joinFrom(parts, 2) : "Sin razón")));
+                    WorkerClient.esc(joinFrom(parts, 2))));
                 break;
-            case "mute": case "tempmute":
-                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
+            case "mute":
+                // /mute <jugador> <razón...> — mínimo 3 partes
+                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 3) return;
                 client.post("/mc/sanction", String.format(
                     "{\"type\":\"mute\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"%s\"}",
                     WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName()),
-                    WorkerClient.esc(parts.length >= 3 ? joinFrom(parts, 2) : "Sin razón")));
+                    WorkerClient.esc(joinFrom(parts, 2))));
+                break;
+            case "tempmute":
+                // /tempmute <jugador> <duración> <razón...> — mínimo 4 partes
+                if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 4) return;
+                client.post("/mc/sanction", String.format(
+                    "{\"type\":\"mute\",\"target\":\"%s\",\"staff\":\"%s\",\"duration\":\"%s\",\"reason\":\"%s\"}",
+                    WorkerClient.esc(parts[1]), WorkerClient.esc(player.getName()),
+                    WorkerClient.esc(parts[2]),
+                    WorkerClient.esc(joinFrom(parts, 3))));
                 break;
             case "unmute":
                 if (!plugin.getConfig().getBoolean("sync.sanctions", true) || parts.length < 2) return;
