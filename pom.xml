@@ -36,6 +36,13 @@
             <scope>system</scope>
             <systemPath>${project.basedir}/libs/RyzenStaff.jar</systemPath>
         </dependency>
+        <dependency>
+            <groupId>me.leoko.advancedban</groupId>
+            <artifactId>AdvancedBan</artifactId>
+            <version>2.3.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/libs/AdvancedBan.jar</systemPath>
+        </dependency>
     </dependencies>
 
     <build>
