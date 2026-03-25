@@ -29,7 +29,7 @@ public class RyzenStaffListener implements Listener {
     private final Map<UUID, Boolean> adminChatState = new HashMap<>();
     private final Map<UUID, Boolean> staffChatState = new HashMap<>();
 
-    // Contador para logs de debug (solo loguea cada N ticks para no spamear)
+    // Debug: un tick = 2s (40L). 45 ticks = ~90s
     private int debugTick = 0;
 
     public RyzenStaffListener(InvictusSync plugin) {
@@ -49,7 +49,8 @@ public class RyzenStaffListener implements Listener {
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             if (ryzen == null || !plugin.getConfig().getBoolean("sync.activity", true)) return;
             debugTick++;
-            boolean doDebug = (debugTick % 5 == 0); // log cada 5 ticks (~10s)
+            boolean doDebug = (debugTick % 45 == 0); // ~90s
+            StringBuilder debugSummary = doDebug ? new StringBuilder("[InvictusSync] DEBUG estados:") : null;
             try {
                 RyzenStaffApi api = new RyzenStaffApi(ryzen);
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -88,12 +89,14 @@ public class RyzenStaffListener implements Listener {
                     }
                     boolean wasInAdminChat = adminChatState.getOrDefault(uuid, false);
 
-                    // Debug: mostrar estado cada 5 ticks
+                    // Acumular en resumen debug (una sola linea al final)
                     if (doDebug) {
-                        plugin.getLogger().info("[InvictusSync] DEBUG " + player.getName()
-                            + " | adminChat=" + inAdminChat + " (prev=" + wasInAdminChat + ")"
-                            + " | staffMode=" + inStaffMode);
+                        debugSummary.append(" | ").append(player.getName())
+                            .append("[sm=").append(inStaffMode ? "1" : "0")
+                            .append(",ac=").append(inAdminChat ? "1" : "0")
+                            .append("]");
                     }
+
 
                     if (inAdminChat && !wasInAdminChat) {
                         adminChatState.put(uuid, true);
@@ -109,6 +112,8 @@ public class RyzenStaffListener implements Listener {
                             WorkerClient.esc(player.getName()), uuid));
                     }
                 }
+                // Imprimir resumen debug si corresponde
+                if (doDebug && debugSummary.length() > 28) plugin.getLogger().info(debugSummary.toString());
             } catch (Exception e) {
                 plugin.getLogger().warning("[InvictusSync] Error en polling: " + e.getClass().getName() + ": " + e.getMessage());
                 // Imprimir stack trace completo para diagnosticar
