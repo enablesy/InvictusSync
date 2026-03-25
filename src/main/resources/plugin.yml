@@ -5,6 +5,8 @@ api-version: 1.20
 author: INVICTUS Network
 description: Sincroniza eventos del servidor con el Staff Portal de INVICTUS
 
+depend: [RyzenStaff, AdvancedBan]
+
 commands:
   invictussync:
     description: Recarga la configuracion de InvictusSync
