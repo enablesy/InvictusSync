@@ -64,6 +64,18 @@ public class InvictusSync extends JavaPlugin {
             }
             getServer().getScheduler().runTaskAsynchronously(this, () -> {
                 try {
+                    // Verificar si ya está vinculado
+                    String checkResponse = workerClient.getAndRead(
+                        "/mc/link/check?uuid=" + player.getUniqueId().toString()
+                    );
+                    if (checkResponse != null && checkResponse.contains("\"linked\":true")) {
+                        String discordUser = checkResponse.replaceAll(".*\"discordUsername\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                        player.sendMessage("§6§l⚔ INVICTUS §r§7— Tu cuenta ya está vinculada a §e" + discordUser + "§7 en el portal.");
+                        player.sendMessage("§7Si querés cambiarla, desvinculá desde tu perfil en el §6Staff Portal§7.");
+                        return;
+                    }
+
+                    // Generar código nuevo
                     String json = String.format(
                         "{\"nick\":\"%s\",\"uuid\":\"%s\"}",
                         WorkerClient.esc(player.getName()),
@@ -71,7 +83,6 @@ public class InvictusSync extends JavaPlugin {
                     );
                     String response = workerClient.postAndRead("/mc/link/generate", json);
                     if (response != null && response.contains("\"code\"")) {
-                        // Extraer el código de la respuesta JSON
                         String code = response.replaceAll(".*\"code\"\\s*:\\s*\"([^\"]+)\".*", "$1");
                         player.sendMessage("§6§l⚔ INVICTUS §r§7— Vinculación de cuenta");
                         player.sendMessage("§7Tu código de vinculación es:");
