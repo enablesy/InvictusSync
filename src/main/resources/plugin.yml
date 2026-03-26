@@ -7,8 +7,20 @@ description: Sincroniza eventos del servidor con el Staff Portal de INVICTUS
 
 depend: [RyzenStaff, AdvancedBan]
 
+permissions:
+  invictussync.admin:
+    description: Permite recargar InvictusSync
+    default: op
+  invictussync.link:
+    description: Permite vincular cuenta de Minecraft con el Staff Portal
+    default: false
+
 commands:
   invictussync:
     description: Recarga la configuracion de InvictusSync
     usage: /invictussync reload
     permission: invictussync.admin
+  link:
+    description: Vincula tu cuenta de Minecraft con el Staff Portal
+    usage: /link
+    permission: invictussync.link
