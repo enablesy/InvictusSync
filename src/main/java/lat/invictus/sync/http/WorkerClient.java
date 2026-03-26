@@ -50,6 +50,34 @@ public class WorkerClient {
         });
     }
 
+    // Como post() pero devuelve la respuesta — usado para /link
+    public String postAndRead(String endpoint, String json) {
+        try {
+            URL url = new URL(workerUrl + endpoint);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("X-MC-Token", mcToken);
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(json.getBytes(StandardCharsets.UTF_8));
+            }
+
+            int code = conn.getResponseCode();
+            java.io.InputStream is = (code == 200) ? conn.getInputStream() : conn.getErrorStream();
+            if (is == null) return null;
+            String response = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            conn.disconnect();
+            return response;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error en postAndRead (" + endpoint + "): " + e.getMessage());
+            return null;
+        }
+    }
+
     public void shutdown() {
         executor.shutdown();
     }
