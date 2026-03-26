@@ -78,6 +78,27 @@ public class WorkerClient {
         }
     }
 
+    // GET con lectura de respuesta
+    public String getAndRead(String endpoint) {
+        try {
+            URL url = new URL(workerUrl + endpoint);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("X-MC-Token", mcToken);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            int code = conn.getResponseCode();
+            java.io.InputStream is = (code == 200) ? conn.getInputStream() : conn.getErrorStream();
+            if (is == null) return null;
+            String response = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            conn.disconnect();
+            return response;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error en getAndRead (" + endpoint + "): " + e.getMessage());
+            return null;
+        }
+    }
+
     public void shutdown() {
         executor.shutdown();
     }
