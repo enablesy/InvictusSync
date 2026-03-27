@@ -9,7 +9,7 @@ depend: [RyzenStaff, AdvancedBan]
 
 permissions:
   invictussync.admin:
-    description: Permite recargar InvictusSync
+    description: Permite recargar InvictusSync y sincronizar plugins
     default: op
   invictussync.link:
     description: Permite vincular cuenta de Minecraft con el Staff Portal
@@ -19,6 +19,10 @@ commands:
   invictussync:
     description: Recarga la configuracion de InvictusSync
     usage: /invictussync reload
+    permission: invictussync.admin
+  syncplugins:
+    description: Sincroniza la lista de plugins con el Staff Portal
+    usage: /syncplugins
     permission: invictussync.admin
   link:
     description: Vincula tu cuenta de Minecraft con el Staff Portal
