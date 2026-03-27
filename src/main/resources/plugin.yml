@@ -24,3 +24,6 @@ commands:
     description: Vincula tu cuenta de Minecraft con el Staff Portal
     usage: /link
     permission: invictussync.link
+  postular:
+    description: Genera un codigo para postularte al equipo de INVICTUS
+    usage: /postular
