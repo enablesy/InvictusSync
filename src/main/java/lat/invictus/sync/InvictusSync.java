@@ -99,6 +99,37 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        if (command.getName().equalsIgnoreCase("postular")) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("§cEste comando solo puede usarlo un jugador.");
+                return true;
+            }
+            Player player = (Player) sender;
+            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+                try {
+                    String json = String.format(
+                        "{\"nick\":\"%s\",\"uuid\":\"%s\"}",
+                        WorkerClient.esc(player.getName()),
+                        player.getUniqueId().toString()
+                    );
+                    String response = workerClient.postAndRead("/mc/apply/generate", json);
+                    if (response != null && response.contains("\"code\"")) {
+                        String code = response.replaceAll(".*\"code\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                        player.sendMessage("§6§l⚔ INVICTUS §r§7— Postulación al equipo");
+                        player.sendMessage("§7Visita §6https://invictus.lat/postular §7y usa este código:");
+                        player.sendMessage("§e§l  " + code);
+                        player.sendMessage("§7El código expira en §e10 minutos§7.");
+                    } else {
+                        player.sendMessage("§cError al generar el código. Inténtalo de nuevo.");
+                    }
+                } catch (Exception e) {
+                    player.sendMessage("§cError al contactar el servidor. Inténtalo de nuevo.");
+                    getLogger().warning("Error en /postular: " + e.getMessage());
+                }
+            });
+            return true;
+        }
+
         return false;
     }
 
