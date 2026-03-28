@@ -42,16 +42,17 @@ public class LookupListener implements Listener {
     }
 
     // ── INTERCEPTAR /lookup ANTES QUE ESSENTIALS ─────────────
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         String msg = event.getMessage();
         String lower = msg.toLowerCase();
         if (!lower.startsWith("/lookup ") && !lower.equals("/lookup")) return;
 
         Player player = event.getPlayer();
-        if (!player.hasPermission("invictussync.link")) return; // dejar pasar a Essentials si no es staff
+        if (!player.hasPermission("invictussync.link")) return;
 
         event.setCancelled(true);
+        event.setMessage("/null"); // evitar que otros plugins lo procesen
 
         String[] parts = msg.split(" ", 2);
         if (parts.length < 2 || parts[1].trim().isEmpty()) {
