@@ -175,7 +175,7 @@ public class HistorialMenu implements Listener {
             if (meta != null && meta.hasDisplayName()) {
                 String altName = ChatColor.stripColor(meta.getDisplayName());
                 viewer.closeInventory();
-                viewer.sendMessage(plugin.getMsg("historial-loading").replace("{player}", altName));
+                viewer.sendMessage(plugin.getMsg("oracle-loading").replace("{player}", altName));
                 // Cargar historial del alt
                 plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () ->
                     plugin.getHistorialCommand().fetchAndOpen(viewer, altName)
