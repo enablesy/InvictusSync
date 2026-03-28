@@ -23,32 +23,32 @@ public class TicketListener implements Listener {
 
     private final InvictusSync plugin;
 
-    // UUID → categoría seleccionada (esperando descripción por chat)
-    private final Map<UUID, String> awaitingInput = new ConcurrentHashMap<>();
-    // UUID → nick del reportado (solo para categoría REPORTE)
+    private final Map<UUID, String> awaitingInput      = new ConcurrentHashMap<>();
     private final Map<UUID, String> awaitingReportedNick = new ConcurrentHashMap<>();
-    // UUID → inventario abierto
-    private final Set<UUID> openMenus = ConcurrentHashMap.newKeySet();
-    // Cooldowns
-    private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-    private static final long COOLDOWN_MS = 60000;
+    private final Set<UUID>         openMenus           = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Long>   cooldowns           = new ConcurrentHashMap<>();
 
+    private static final long COOLDOWN_MS = 60000;
     private static final String MENU_TITLE = ChatColor.DARK_GRAY + "» " + ChatColor.GOLD + "Abrir Ticket";
 
-    // Categorías: Material, nombre, descripción, color
+    // Categorías: Material, nombre visible, descripción (lore), color, id interno
     private static final Object[][] CATEGORIES = {
-        { Material.REDSTONE, "Reporte de jugador",   "Reporta a un jugador por hacer\nalgo contra las reglas.",        ChatColor.RED,        "reporte"    },
-        { Material.WRITABLE_BOOK, "Bug / Error",     "Informa de un fallo o error\nque encontraste en el servidor.",   ChatColor.AQUA,       "bug"        },
-        { Material.BOOK, "Queja",                    "Queja sobre el comportamiento\ndel servidor o el staff.",         ChatColor.YELLOW,     "queja"      },
-        { Material.COMPASS, "Sugerencia",            "Propón una mejora o idea\npara el servidor.",                     ChatColor.GREEN,      "sugerencia" },
-        { Material.PAPER, "Otro",                    "Cualquier otra consulta\nque no encaje en las anteriores.",       ChatColor.GRAY,       "otro"       },
+        { Material.REDSTONE,      "Reporte de jugador", "Reporta a un jugador por romper\nlas reglas del servidor.",           ChatColor.RED,    "reporte"    },
+        { Material.WRITABLE_BOOK, "Bug / Error",        "Informa de un fallo técnico\nque encontraste en el servidor.",        ChatColor.AQUA,   "bug"        },
+        { Material.BOOK,          "Queja",              "Queja sobre el comportamiento\ndel servidor o el staff.",             ChatColor.YELLOW, "queja"      },
+        { Material.COMPASS,       "Sugerencia",         "Propón una mejora o idea\npara el servidor.",                         ChatColor.GREEN,  "sugerencia" },
+        { Material.PAPER,         "Otro",               "Cualquier consulta que no\nencaje en las categorías anteriores.",     ChatColor.GRAY,   "otro"       },
     };
+
+    // Slots donde van las 5 categorías en un inventario de 27 (fila del medio, centrado)
+    // Fila 2 (índices 9-17): usamos 10, 11, 12, 13, 14 → centrado en 9 columnas
+    private static final int[] CAT_SLOTS = { 10, 11, 12, 13, 14 };
 
     public TicketListener(InvictusSync plugin) {
         this.plugin = plugin;
     }
 
-    // ── /ticket ──────────────────────────────────────────────
+    // ── /ticket ───────────────────────────────────────────────
     @EventHandler
     public void onCommand(PlayerCommandPreprocessEvent event) {
         if (!event.getMessage().equalsIgnoreCase("/ticket")) return;
@@ -64,34 +64,42 @@ public class TicketListener implements Listener {
         openTicketMenu(player);
     }
 
-    // ── MENÚ PRINCIPAL ────────────────────────────────────────
+    // ── MENÚ (27 slots) ───────────────────────────────────────
     private void openTicketMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
 
-        // Fondo
+        // Fondo negro
         ItemStack bg = makeItem(Material.BLACK_STAINED_GLASS_PANE, " ");
         for (int i = 0; i < 27; i++) inv.setItem(i, bg);
 
-        // Categorías en slots 10, 11, 12, 13, 14
-        int[] slots = {10, 11, 12, 13, 14};
+        // Borde gris oscuro — fila 0, fila 2 (inferior), columnas 0 y 8
+        ItemStack border = makeItem(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < 9; i++)  inv.setItem(i, border);      // fila 0
+        for (int i = 18; i < 27; i++) inv.setItem(i, border);     // fila 2
+        inv.setItem(9,  border);                                    // col 0 fila 1
+        inv.setItem(17, border);                                    // col 8 fila 1
+
+        // Categorías en slots 10-14 (fila del medio, interior)
         for (int i = 0; i < CATEGORIES.length; i++) {
-            Object[] cat = CATEGORIES[i];
-            Material mat = (Material) cat[0];
-            String name = (String) cat[1];
-            String desc = (String) cat[2];
-            ChatColor color = (ChatColor) cat[3];
+            Object[]   cat   = CATEGORIES[i];
+            Material   mat   = (Material)  cat[0];
+            String     name  = (String)    cat[1];
+            String     desc  = (String)    cat[2];
+            ChatColor  color = (ChatColor) cat[3];
 
             List<String> lore = new ArrayList<>();
             for (String line : desc.split("\n"))
                 lore.add(ChatColor.GRAY + line);
             lore.add("");
-            lore.add(ChatColor.YELLOW + "» Click para seleccionar");
+            lore.add(ChatColor.YELLOW + "» Clic para seleccionar");
 
-            inv.setItem(slots[i], makeItem(mat, color + "" + ChatColor.BOLD + name, lore));
+            inv.setItem(CAT_SLOTS[i], makeItem(mat,
+                color + "" + ChatColor.BOLD + name, lore));
         }
 
-        // Botón cerrar
-        inv.setItem(22, makeItem(Material.BARRIER, ChatColor.RED + "Cancelar"));
+        // Botón cancelar — slot 22 (centro fila inferior)
+        inv.setItem(22, makeItem(Material.BARRIER, ChatColor.RED + "" + ChatColor.BOLD + "Cancelar",
+            Collections.singletonList(ChatColor.GRAY + "Cerrar sin abrir ticket")));
 
         openMenus.add(player.getUniqueId());
         plugin.getServer().getScheduler().runTask(plugin, () -> player.openInventory(inv));
@@ -107,33 +115,35 @@ public class TicketListener implements Listener {
 
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() == Material.AIR
-                || clicked.getType() == Material.BLACK_STAINED_GLASS_PANE) return;
+                || clicked.getType() == Material.BLACK_STAINED_GLASS_PANE
+                || clicked.getType() == Material.GRAY_STAINED_GLASS_PANE) return;
 
         if (clicked.getType() == Material.BARRIER) {
             player.closeInventory();
             return;
         }
 
-        // Identificar categoría por slot
         int slot = event.getSlot();
-        int[] slots = {10, 11, 12, 13, 14};
-        for (int i = 0; i < slots.length; i++) {
-            if (slot == slots[i]) {
-                String catId = (String) CATEGORIES[i][4];
-                player.closeInventory();
+        for (int i = 0; i < CAT_SLOTS.length; i++) {
+            if (slot != CAT_SLOTS[i]) continue;
+            String catId = (String) CATEGORIES[i][4];
+            player.closeInventory();
 
-                if (catId.equals("reporte")) {
-                    // Primero pedir el nick del jugador a reportar
-                    awaitingReportedNick.put(player.getUniqueId(), "");
-                    player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY + "Escribe el nick del jugador que quieres reportar en el chat:");
-                    player.sendMessage(ChatColor.DARK_GRAY + "(Escribe " + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
-                } else {
-                    awaitingInput.put(player.getUniqueId(), catId);
-                    player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY + "Describe tu " + ChatColor.YELLOW + (String) CATEGORIES[i][1] + ChatColor.GRAY + " en el chat:");
-                    player.sendMessage(ChatColor.DARK_GRAY + "(Escribe " + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
-                }
-                return;
+            if (catId.equals("reporte")) {
+                awaitingReportedNick.put(player.getUniqueId(), "");
+                player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY
+                    + "Escribe el nick del jugador a reportar:");
+                player.sendMessage(ChatColor.DARK_GRAY + "(Escribe "
+                    + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
+            } else {
+                awaitingInput.put(player.getUniqueId(), catId);
+                player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY
+                    + "Describe tu " + ChatColor.YELLOW + (String) CATEGORIES[i][1]
+                    + ChatColor.GRAY + ":");
+                player.sendMessage(ChatColor.DARK_GRAY + "(Escribe "
+                    + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
             }
+            return;
         }
     }
 
@@ -146,25 +156,23 @@ public class TicketListener implements Listener {
     @EventHandler
     public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-        String msg = event.getMessage().trim();
+        UUID   uuid   = player.getUniqueId();
+        String msg    = event.getMessage().trim();
 
         // Esperando nick del reportado
         if (awaitingReportedNick.containsKey(uuid)) {
             event.setCancelled(true);
             awaitingReportedNick.remove(uuid);
-
             if (msg.equalsIgnoreCase("cancelar")) {
                 player.sendMessage(ChatColor.GRAY + "Ticket cancelado.");
                 return;
             }
-
-            String reportedNick = msg;
-            awaitingInput.put(uuid, "reporte:" + reportedNick);
+            awaitingInput.put(uuid, "reporte:" + msg);
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY + "Ahora describe el motivo del reporte contra "
-                    + ChatColor.YELLOW + reportedNick + ChatColor.GRAY + ":");
-                player.sendMessage(ChatColor.DARK_GRAY + "(Escribe " + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
+                player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY
+                    + "Ahora describe el motivo contra " + ChatColor.YELLOW + msg + ChatColor.GRAY + ":");
+                player.sendMessage(ChatColor.DARK_GRAY + "(Escribe "
+                    + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
             });
             return;
         }
@@ -173,56 +181,48 @@ public class TicketListener implements Listener {
         if (awaitingInput.containsKey(uuid)) {
             event.setCancelled(true);
             String catId = awaitingInput.remove(uuid);
-
             if (msg.equalsIgnoreCase("cancelar")) {
                 player.sendMessage(ChatColor.GRAY + "Ticket cancelado.");
                 return;
             }
 
-            String finalCatId = catId;
-            String finalMsg = msg;
-
-            // Aplicar cooldown
             cooldowns.put(uuid, System.currentTimeMillis());
 
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
                 try {
-                    String catLabel;
-                    String reason;
-
-                    if (finalCatId.startsWith("reporte:")) {
-                        String reportedNick = finalCatId.substring("reporte:".length());
+                    String catLabel, reason;
+                    if (catId.startsWith("reporte:")) {
+                        String reportedNick = catId.substring("reporte:".length());
                         catLabel = "Reporte de jugador";
-                        reason = "[TICKET:" + catLabel + "] Jugador reportado: " + reportedNick + " — " + finalMsg;
+                        reason   = "[TICKET:" + catLabel + "] Jugador reportado: " + reportedNick + " — " + msg;
                     } else {
-                        catLabel = getCatLabel(finalCatId);
-                        reason = "[TICKET:" + catLabel + "] " + finalMsg;
+                        catLabel = getCatLabel(catId);
+                        reason   = "[TICKET:" + catLabel + "] " + msg;
                     }
 
                     String json = String.format(
                         "{\"reporter\":\"%s\",\"reporterUuid\":\"%s\",\"reported\":\"SERVIDOR\",\"reason\":\"%s\"}",
-                        WorkerClient.esc(player.getName()),
-                        uuid.toString(),
-                        WorkerClient.esc(reason)
+                        WorkerClient.esc(player.getName()), uuid.toString(), WorkerClient.esc(reason)
                     );
                     plugin.getWorkerClient().post("/mc/report", json);
 
+                    final String finalCatId  = catId;
+                    final String finalMsg    = msg;
+                    final String finalLabel  = catLabel;
                     plugin.getServer().getScheduler().runTask(plugin, () -> {
                         player.sendMessage(plugin.getMsg("ticket-sent"));
-                        // Notificar al staff online
                         plugin.getServer().getOnlinePlayers().stream()
                             .filter(p -> p.hasPermission("invictussync.link") && !p.equals(player))
                             .forEach(p -> p.sendMessage(
                                 ChatColor.BLUE + "" + ChatColor.BOLD + "[TICKET] " + ChatColor.RESET
                                 + ChatColor.GRAY + player.getName() + " — "
-                                + ChatColor.YELLOW + getCatLabel(finalCatId.startsWith("reporte:") ? "reporte" : finalCatId)
+                                + ChatColor.YELLOW + finalLabel
                                 + ChatColor.GRAY + ": " + finalMsg
                             ));
                     });
                 } catch (Exception e) {
                     plugin.getServer().getScheduler().runTask(plugin, () ->
-                        player.sendMessage(plugin.getMsg("ticket-error"))
-                    );
+                        player.sendMessage(plugin.getMsg("ticket-error")));
                 }
             });
         }
@@ -230,23 +230,19 @@ public class TicketListener implements Listener {
 
     // ── UTILS ─────────────────────────────────────────────────
     private String getCatLabel(String catId) {
-        for (Object[] cat : CATEGORIES) {
+        for (Object[] cat : CATEGORIES)
             if (cat[4].equals(catId)) return (String) cat[1];
-        }
         return catId;
     }
 
     private ItemStack makeItem(Material material, String name, List<String> lore) {
         ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+        ItemMeta  meta = item.getItemMeta();
         if (meta == null) return item;
         meta.setDisplayName(name);
         if (lore != null) meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
     }
-
-    private ItemStack makeItem(Material material, String name) {
-        return makeItem(material, name, null);
-    }
+    private ItemStack makeItem(Material material, String name) { return makeItem(material, name, null); }
 }
