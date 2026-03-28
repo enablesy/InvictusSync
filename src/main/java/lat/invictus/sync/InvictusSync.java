@@ -89,6 +89,7 @@ public class InvictusSync extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        getLogger().info("[Diagnóstico] onCommand recibido: /" + command.getName() + " de " + sender.getName());
 
         if (command.getName().equalsIgnoreCase("invictussync")) {
             if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
