@@ -30,6 +30,7 @@ public class InvictusSync extends JavaPlugin {
     private AlertTask alertTask;
     private Handler consoleHandler;
     private WordFilter wordFilter;
+    private LookupListener lookupListener; // ← referencia guardada
     private final CopyOnWriteArrayList<LogRecord> pendingLogs = new CopyOnWriteArrayList<>();
 
     @Override
@@ -43,8 +44,10 @@ public class InvictusSync extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SpamListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
         getServer().getPluginManager().registerEvents(new TicketListener(this), this);
-        getServer().getPluginManager().registerEvents(new LookupListener(this), this);
 
+        // Guardar instancia del LookupListener para poder llamarlo desde onCommand
+        lookupListener = new LookupListener(this);
+        getServer().getPluginManager().registerEvents(lookupListener, this);
 
         if (getConfig().getBoolean("sync.status", true)) {
             int interval = getConfig().getInt("status-interval", 30) * 20;
@@ -57,7 +60,6 @@ public class InvictusSync extends JavaPlugin {
         alertTask.runTaskTimerAsynchronously(this, 200L, alertInterval);
 
         getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
-        // Diagnóstico: listar comandos registrados
         getLogger().info("[Diagnóstico] Comandos registrados: " +
             getDescription().getCommands().keySet().toString());
 
@@ -82,6 +84,7 @@ public class InvictusSync extends JavaPlugin {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         getLogger().info("[Diagnóstico] onCommand recibido: /" + command.getName() + " de " + sender.getName());
 
+        // ── /invictussync ─────────────────────────────────────
         if (command.getName().equalsIgnoreCase("invictussync")) {
             if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
                 if (!sender.hasPermission("invictussync.admin")) { sender.sendMessage(getMsg("no-permission")); return true; }
@@ -96,6 +99,7 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        // ── /syncplugins ──────────────────────────────────────
         if (command.getName().equalsIgnoreCase("syncplugins")) {
             if (!sender.hasPermission("invictussync.admin")) { sender.sendMessage(getMsg("no-permission")); return true; }
             sender.sendMessage(getMsg("syncplugins-start"));
@@ -106,6 +110,7 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        // ── /link ─────────────────────────────────────────────
         if (command.getName().equalsIgnoreCase("link")) {
             if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
             Player player = (Player) sender;
@@ -139,6 +144,7 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        // ── /postular ─────────────────────────────────────────
         if (command.getName().equalsIgnoreCase("postular")) {
             if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
             Player player = (Player) sender;
@@ -164,6 +170,7 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        // ── /staff ────────────────────────────────────────────
         if (command.getName().equalsIgnoreCase("staff")) {
             List<String> staffOnline = new ArrayList<>();
             for (Player p : getServer().getOnlinePlayers()) {
@@ -179,6 +186,23 @@ public class InvictusSync extends JavaPlugin {
                     sender.sendMessage(getMsg("staff-entry").replace("{name}", name));
                 }
             }
+            return true;
+        }
+
+        // ── /lookup ───────────────────────────────────────────
+        if (command.getName().equalsIgnoreCase("lookup")) {
+            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
+            Player player = (Player) sender;
+            if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
+            if (args.length == 0 || args[0].trim().isEmpty()) {
+                player.sendMessage(getMsg("lookup-usage"));
+                return true;
+            }
+            String targetName = args[0].trim();
+            player.sendMessage(getMsg("lookup-loading").replace("{player}", targetName));
+            getServer().getScheduler().runTaskAsynchronously(this, () ->
+                lookupListener.fetchAndOpen(player, targetName)
+            );
             return true;
         }
 
@@ -269,4 +293,5 @@ public class InvictusSync extends JavaPlugin {
     public static InvictusSync getInstance() { return instance; }
     public WorkerClient getWorkerClient() { return workerClient; }
     public WordFilter getWordFilter() { return wordFilter; }
+    public LookupListener getLookupListener() { return lookupListener; }
 }
