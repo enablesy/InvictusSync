@@ -191,13 +191,13 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("oracle")) {
+        if (command.getName().equalsIgnoreCase("lookup")) {
             if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
             Player player = (Player) sender;
             if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
-            if (args.length == 0) { player.sendMessage(getMsg("oracle-usage")); return true; }
+            if (args.length == 0) { player.sendMessage(getMsg("lookup-usage")); return true; }
             String targetName = args[0];
-            player.sendMessage(getMsg("oracle-loading").replace("{player}", targetName));
+            player.sendMessage(getMsg("lookup-loading").replace("{player}", targetName));
             getServer().getScheduler().runTaskAsynchronously(this, () ->
                 historialCommand.fetchAndOpen(player, targetName)
             );
