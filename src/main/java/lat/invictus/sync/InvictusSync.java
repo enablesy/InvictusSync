@@ -1,5 +1,6 @@
 package lat.invictus.sync;
 
+import lat.invictus.sync.commands.LookupCommand;
 import lat.invictus.sync.filter.WordFilter;
 import lat.invictus.sync.listeners.LookupListener;
 import lat.invictus.sync.listeners.PlayerConnectionListener;
@@ -45,9 +46,10 @@ public class InvictusSync extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
         getServer().getPluginManager().registerEvents(new TicketListener(this), this);
 
-        // Guardar instancia del LookupListener para poder llamarlo desde onCommand
+        // Registrar LookupListener y asignar executor dedicado al comando /lookup
         lookupListener = new LookupListener(this);
         getServer().getPluginManager().registerEvents(lookupListener, this);
+        getCommand("lookup").setExecutor(new LookupCommand(this, lookupListener));
 
         if (getConfig().getBoolean("sync.status", true)) {
             int interval = getConfig().getInt("status-interval", 30) * 20;
@@ -186,23 +188,6 @@ public class InvictusSync extends JavaPlugin {
                     sender.sendMessage(getMsg("staff-entry").replace("{name}", name));
                 }
             }
-            return true;
-        }
-
-        // ── /lookup ───────────────────────────────────────────
-        if (command.getName().equalsIgnoreCase("lookup")) {
-            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
-            Player player = (Player) sender;
-            if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
-            if (args.length == 0 || args[0].trim().isEmpty()) {
-                player.sendMessage(getMsg("lookup-usage"));
-                return true;
-            }
-            String targetName = args[0].trim();
-            player.sendMessage(getMsg("lookup-loading").replace("{player}", targetName));
-            getServer().getScheduler().runTaskAsynchronously(this, () ->
-                lookupListener.fetchAndOpen(player, targetName)
-            );
             return true;
         }
 
