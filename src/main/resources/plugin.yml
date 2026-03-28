@@ -31,3 +31,6 @@ commands:
   postular:
     description: Genera un codigo para postularte al equipo de INVICTUS
     usage: /postular
+  staff:
+    description: Muestra el staff conectado en este momento
+    usage: /staff
