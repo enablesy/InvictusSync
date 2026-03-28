@@ -1,8 +1,13 @@
 package lat.invictus.sync;
 
+import lat.invictus.sync.commands.HistorialCommand;
+import lat.invictus.sync.filter.WordFilter;
+import lat.invictus.sync.listeners.PlayerConnectionListener;
 import lat.invictus.sync.listeners.RyzenStaffListener;
 import lat.invictus.sync.listeners.SpamListener;
-import lat.invictus.sync.listeners.PlayerConnectionListener;
+import lat.invictus.sync.listeners.TicketListener;
+import lat.invictus.sync.menu.HistorialMenu;
+import lat.invictus.sync.tasks.AlertTask;
 import lat.invictus.sync.tasks.StatusTask;
 import lat.invictus.sync.http.WorkerClient;
 import org.bukkit.Bukkit;
@@ -23,7 +28,11 @@ public class InvictusSync extends JavaPlugin {
     private static InvictusSync instance;
     private WorkerClient workerClient;
     private StatusTask statusTask;
+    private AlertTask alertTask;
     private Handler consoleHandler;
+    private WordFilter wordFilter;
+    private HistorialMenu historialMenu;
+    private HistorialCommand historialCommand;
     private final CopyOnWriteArrayList<LogRecord> pendingLogs = new CopyOnWriteArrayList<>();
 
     @Override
@@ -31,91 +40,102 @@ public class InvictusSync extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
         workerClient = new WorkerClient(this);
+        wordFilter = new WordFilter(this);
+        historialMenu = new HistorialMenu(this);
+        historialCommand = new HistorialCommand(this, historialMenu);
+
         getServer().getPluginManager().registerEvents(new RyzenStaffListener(this), this);
         getServer().getPluginManager().registerEvents(new SpamListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new TicketListener(this), this);
+        getServer().getPluginManager().registerEvents(historialMenu, this);
+
+        if (getCommand("historial") != null)
+            getCommand("historial").setExecutor(historialCommand);
+
         if (getConfig().getBoolean("sync.status", true)) {
             int interval = getConfig().getInt("status-interval", 30) * 20;
             statusTask = new StatusTask(this);
             statusTask.runTaskTimerAsynchronously(this, 100L, interval);
         }
+
+        int alertInterval = getConfig().getInt("alerts.check-interval", 100);
+        alertTask = new AlertTask(this);
+        alertTask.runTaskTimerAsynchronously(this, 200L, alertInterval);
+
         getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
-        // Sincronizar plugins al arrancar (async, 5 segundos de delay)
-        getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncPlugins, 100L);
-        // Registrar handler de consola para capturar logs
+
+        if (getConfig().getBoolean("sync.plugins", true))
+            getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncPlugins, 100L);
+
         setupConsoleHandler();
-        // Enviar logs acumulados cada 30 segundos
         getServer().getScheduler().runTaskTimerAsynchronously(this, this::flushLogs, 600L, 600L);
+        getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncWordFilter, 200L);
     }
 
     @Override
     public void onDisable() {
         if (statusTask != null) statusTask.cancel();
+        if (alertTask != null) alertTask.cancel();
         if (workerClient != null) workerClient.shutdown();
-        if (consoleHandler != null) {
-            Bukkit.getLogger().removeHandler(consoleHandler);
-        }
+        if (consoleHandler != null) Bukkit.getLogger().removeHandler(consoleHandler);
         getLogger().info("InvictusSync deshabilitado.");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+
         if (command.getName().equalsIgnoreCase("invictussync")) {
             if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
-                if (!sender.hasPermission("invictussync.admin")) {
-                    sender.sendMessage("§cNo tenés permiso para hacer esto.");
-                    return true;
-                }
+                if (!sender.hasPermission("invictussync.admin")) { sender.sendMessage(getMsg("no-permission")); return true; }
                 reloadConfig();
                 workerClient = new WorkerClient(this);
-                sender.sendMessage("§aInvictusSync recargado.");
+                wordFilter.reload();
+                getServer().getScheduler().runTaskAsynchronously(this, this::syncWordFilter);
+                sender.sendMessage(getMsg("reload-done"));
                 return true;
             }
             sender.sendMessage("§eUso: /invictussync reload");
             return true;
         }
 
+        if (command.getName().equalsIgnoreCase("syncplugins")) {
+            if (!sender.hasPermission("invictussync.admin")) { sender.sendMessage(getMsg("no-permission")); return true; }
+            sender.sendMessage(getMsg("syncplugins-start"));
+            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+                syncPlugins();
+                sender.sendMessage(getMsg("syncplugins-done"));
+            });
+            return true;
+        }
+
         if (command.getName().equalsIgnoreCase("link")) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("§cEste comando solo puede usarlo un jugador.");
-                return true;
-            }
+            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
             Player player = (Player) sender;
-            if (!player.hasPermission("invictussync.link")) {
-                player.sendMessage("§cNo tenés permiso para usar este comando.");
-                return true;
-            }
+            if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
             getServer().getScheduler().runTaskAsynchronously(this, () -> {
                 try {
-                    // Verificar si ya está vinculado
-                    String checkResponse = workerClient.getAndRead(
-                        "/mc/link/check?uuid=" + player.getUniqueId().toString()
-                    );
+                    String checkResponse = workerClient.getAndRead("/mc/link/check?uuid=" + player.getUniqueId());
                     if (checkResponse != null && checkResponse.contains("\"linked\":true")) {
                         String discordUser = checkResponse.replaceAll(".*\"discordUsername\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                        player.sendMessage("§6§l⚔ INVICTUS §r§7— Tu cuenta ya está vinculada a §e" + discordUser + "§7 en el portal.");
-                        player.sendMessage("§7Si querés cambiarla, desvinculá desde tu perfil en el §6Staff Portal§7.");
+                        player.sendMessage(getMsg("link-already-linked").replace("{discord}", discordUser));
+                        player.sendMessage(getMsg("link-already-linked-hint"));
                         return;
                     }
-
-                    // Generar código nuevo
-                    String json = String.format(
-                        "{\"nick\":\"%s\",\"uuid\":\"%s\"}",
-                        WorkerClient.esc(player.getName()),
-                        player.getUniqueId().toString()
-                    );
+                    String json = String.format("{\"nick\":\"%s\",\"uuid\":\"%s\"}",
+                        WorkerClient.esc(player.getName()), player.getUniqueId().toString());
                     String response = workerClient.postAndRead("/mc/link/generate", json);
                     if (response != null && response.contains("\"code\"")) {
                         String code = response.replaceAll(".*\"code\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                        player.sendMessage("§6§l⚔ INVICTUS §r§7— Vinculación de cuenta");
-                        player.sendMessage("§7Tu código de vinculación es:");
+                        player.sendMessage(getMsg("link-header"));
+                        player.sendMessage(getMsg("link-code-label"));
                         player.sendMessage("§e§l  " + code);
-                        player.sendMessage("§7Ingresalo en tu perfil del §6Staff Portal§7 en los próximos §e5 minutos§7.");
+                        player.sendMessage(getMsg("link-code-hint"));
                     } else {
-                        player.sendMessage("§cError al generar el código. Intentá de nuevo.");
+                        player.sendMessage(getMsg("link-error"));
                     }
                 } catch (Exception e) {
-                    player.sendMessage("§cError al contactar el servidor. Intentá de nuevo.");
+                    player.sendMessage(getMsg("error-contact"));
                     getLogger().warning("Error en /link: " + e.getMessage());
                 }
             });
@@ -123,68 +143,43 @@ public class InvictusSync extends JavaPlugin {
         }
 
         if (command.getName().equalsIgnoreCase("postular")) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("§cEste comando solo puede usarlo un jugador.");
-                return true;
-            }
+            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
             Player player = (Player) sender;
             getServer().getScheduler().runTaskAsynchronously(this, () -> {
                 try {
-                    String json = String.format(
-                        "{\"nick\":\"%s\",\"uuid\":\"%s\"}",
-                        WorkerClient.esc(player.getName()),
-                        player.getUniqueId().toString()
-                    );
+                    String json = String.format("{\"nick\":\"%s\",\"uuid\":\"%s\"}",
+                        WorkerClient.esc(player.getName()), player.getUniqueId().toString());
                     String response = workerClient.postAndRead("/mc/apply/generate", json);
                     if (response != null && response.contains("\"code\"")) {
                         String code = response.replaceAll(".*\"code\"\\s*:\\s*\"([^\"]+)\".*", "$1");
-                        player.sendMessage("§6§l⚔ INVICTUS §r§7— Postulación al equipo");
-                        player.sendMessage("§7Visita §6https://invictus.lat/postular §7y usa este código:");
+                        player.sendMessage(getMsg("postular-header"));
+                        player.sendMessage(getMsg("postular-url"));
                         player.sendMessage("§e§l  " + code);
-                        player.sendMessage("§7El código expira en §e10 minutos§7.");
+                        player.sendMessage(getMsg("postular-hint"));
                     } else {
-                        player.sendMessage("§cError al generar el código. Inténtalo de nuevo.");
+                        player.sendMessage(getMsg("postular-error"));
                     }
                 } catch (Exception e) {
-                    player.sendMessage("§cError al contactar el servidor. Inténtalo de nuevo.");
+                    player.sendMessage(getMsg("error-contact"));
                     getLogger().warning("Error en /postular: " + e.getMessage());
                 }
             });
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("syncplugins")) {
-            if (!sender.hasPermission("invictussync.admin")) {
-                sender.sendMessage("§cNo tienes permiso para hacer esto.");
-                return true;
-            }
-            sender.sendMessage("§eSincronizando plugins...");
-            getServer().getScheduler().runTaskAsynchronously(this, () -> {
-                syncPlugins();
-                sender.sendMessage("§aPlugins sincronizados correctamente.");
-            });
-            return true;
-        }
-
         if (command.getName().equalsIgnoreCase("staff")) {
-            // Obtener staff online (excluye vanish)
             List<String> staffOnline = new ArrayList<>();
             for (Player p : getServer().getOnlinePlayers()) {
-                if (!p.hasPermission("invictussync.link")) continue; // solo staff tiene este permiso
-                // Verificar vanish — compatible con SuperVanish/PremiumVanish/CMI
-                if (p.hasMetadata("vanished")) {
-                    boolean vanished = p.getMetadata("vanished").stream()
-                        .anyMatch(m -> m.asBoolean());
-                    if (vanished) continue;
-                }
+                if (!p.hasPermission("invictussync.link")) continue;
+                if (p.hasMetadata("vanished") && p.getMetadata("vanished").stream().anyMatch(m -> m.asBoolean())) continue;
                 staffOnline.add(p.getName());
             }
             if (staffOnline.isEmpty()) {
-                sender.sendMessage("§6§l⚔ INVICTUS §r§7— No hay staff conectado en este momento.");
+                sender.sendMessage(getMsg("staff-empty"));
             } else {
-                sender.sendMessage("§6§l⚔ INVICTUS §r§7— Staff conectado §8(§e" + staffOnline.size() + "§8)§7:");
+                sender.sendMessage(getMsg("staff-header").replace("{count}", String.valueOf(staffOnline.size())));
                 for (String name : staffOnline) {
-                    sender.sendMessage("§8  · §a" + name);
+                    sender.sendMessage(getMsg("staff-entry").replace("{name}", name));
                 }
             }
             return true;
@@ -213,6 +208,26 @@ public class InvictusSync extends JavaPlugin {
         }
     }
 
+    private void syncWordFilter() {
+        try {
+            String response = workerClient.getAndRead("/auth/word-filter");
+            if (response != null && response.contains("\"words\"")) {
+                int start = response.indexOf("\"words\":[");
+                if (start != -1) {
+                    start = response.indexOf("[", start) + 1;
+                    int end = response.indexOf("]", start);
+                    String wordsArr = response.substring(start, end);
+                    for (String w : wordsArr.split(",")) {
+                        String word = w.trim().replace("\"", "");
+                        if (!word.isEmpty()) wordFilter.addWord(word);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            getLogger().warning("Error al sincronizar filtro de palabras: " + e.getMessage());
+        }
+    }
+
     private void setupConsoleHandler() {
         consoleHandler = new Handler() {
             @Override
@@ -221,9 +236,7 @@ public class InvictusSync extends JavaPlugin {
                 String loggerName = record.getLoggerName() != null ? record.getLoggerName() : "";
                 boolean isInvictusSync = loggerName.contains("InvictusSync");
                 boolean isWarningOrAbove = level.intValue() >= Level.WARNING.intValue();
-                if (isWarningOrAbove || isInvictusSync) {
-                    pendingLogs.add(record);
-                }
+                if (isWarningOrAbove || isInvictusSync) pendingLogs.add(record);
             }
             @Override public void flush() {}
             @Override public void close() {}
@@ -235,7 +248,6 @@ public class InvictusSync extends JavaPlugin {
         if (pendingLogs.isEmpty()) return;
         List<LogRecord> toSend = new ArrayList<>(pendingLogs);
         pendingLogs.clear();
-        if (toSend.isEmpty()) return;
         StringBuilder sb = new StringBuilder("{\"logs\":[");
         for (int i = 0; i < toSend.size(); i++) {
             LogRecord r = toSend.get(i);
@@ -251,6 +263,14 @@ public class InvictusSync extends JavaPlugin {
         workerClient.post("/mc/console/log", sb.toString());
     }
 
+    public String getMsg(String key) {
+        String prefix = getConfig().getString("messages.prefix", "§6§l⚔ INVICTUS §r");
+        String msg = getConfig().getString("messages." + key, "§cMensaje no configurado: " + key);
+        return msg.replace("{prefix}", prefix).replace("&", "§");
+    }
+
     public static InvictusSync getInstance() { return instance; }
     public WorkerClient getWorkerClient() { return workerClient; }
+    public WordFilter getWordFilter() { return wordFilter; }
+    public HistorialCommand getHistorialCommand() { return historialCommand; }
 }
