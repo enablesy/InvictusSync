@@ -64,6 +64,11 @@ public class InvictusSync extends JavaPlugin {
         alertTask.runTaskTimerAsynchronously(this, 200L, alertInterval);
 
         getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
+        // Diagnóstico: listar comandos registrados
+        getLogger().info("[Diagnóstico] Comandos registrados: " +
+            getDescription().getCommands().keySet().toString());
+        getLogger().info("[Diagnóstico] Comando 'historial': " +
+            (getCommand("historial") != null ? "ENCONTRADO" : "NO ENCONTRADO"));
 
         if (getConfig().getBoolean("sync.plugins", true))
             getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncPlugins, 100L);
