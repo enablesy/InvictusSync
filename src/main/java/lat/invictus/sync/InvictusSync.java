@@ -185,6 +185,19 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
+        if (command.getName().equalsIgnoreCase("historial")) {
+            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
+            Player player = (Player) sender;
+            if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
+            if (args.length == 0) { player.sendMessage(getMsg("historial-usage")); return true; }
+            String targetName = args[0];
+            player.sendMessage(getMsg("historial-loading").replace("{player}", targetName));
+            getServer().getScheduler().runTaskAsynchronously(this, () ->
+                historialCommand.fetchAndOpen(player, targetName)
+            );
+            return true;
+        }
+
         return false;
     }
 
