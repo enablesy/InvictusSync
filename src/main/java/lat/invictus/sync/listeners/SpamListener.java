@@ -57,9 +57,10 @@ public class SpamListener implements Listener {
 
         // ── CAPS ──
         if (message.length() >= capsMinLength) {
+            // Contar letras mayúsculas vs total de letras
             long upperCount = message.chars().filter(Character::isUpperCase).count();
             long letterCount = message.chars().filter(Character::isLetter).count();
-            if (letterCount > 0 && (double) upperCount / letterCount >= capsThreshold) {
+            if (letterCount >= capsMinLength && (double) upperCount / letterCount >= capsThreshold) {
                 notifyStaff(plugin.getMsg("caps-staff-notify").replace("{player}", player.getName()));
             }
         }
