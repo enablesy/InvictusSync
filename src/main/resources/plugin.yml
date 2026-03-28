@@ -12,12 +12,12 @@ permissions:
     description: Permite recargar InvictusSync y sincronizar plugins
     default: op
   invictussync.link:
-    description: Permite vincular cuenta de Minecraft con el Staff Portal
+    description: Permite vincular cuenta con el Staff Portal y usar comandos de staff
     default: false
 
 commands:
   invictussync:
-    description: Recarga la configuracion de InvictusSync
+    description: Gestión de InvictusSync
     usage: /invictussync reload
     permission: invictussync.admin
   syncplugins:
@@ -34,3 +34,10 @@ commands:
   staff:
     description: Muestra el staff conectado en este momento
     usage: /staff
+  historial:
+    description: Muestra el historial de un jugador
+    usage: /historial <jugador>
+    permission: invictussync.link
+  ticket:
+    description: Envia un ticket al staff
+    usage: /ticket <descripcion>
