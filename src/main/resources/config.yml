@@ -66,9 +66,9 @@ messages:
   staff-empty: "{prefix}§7— No hay staff conectado en este momento."
 
   # /historial
-  oracle-usage: "§eUso: /oracle <jugador>"
-  oracle-not-found: "§cNo se encontró historial para §e{player}§c."
-  oracle-loading: "§7Consultando el oráculo sobre §e{player}§7..."
+  lookup-usage: "§eUso: /lookup <jugador>"
+  lookup-not-found: "§cNo se encontró historial para §e{player}§c."
+  lookup-loading: "§7Buscando información sobre §e{player}§7..."
 
   # /ticket
   ticket-usage: "§eUso: /ticket <descripción>"
