@@ -34,9 +34,9 @@ commands:
   staff:
     description: Muestra el staff conectado en este momento
     usage: /staff
-  historial:
+  oracle:
     description: Muestra el historial de un jugador
-    usage: /historial <jugador>
+    usage: /oracle <jugador>
     permission: invictussync.link
   ticket:
     description: Envia un ticket al staff
