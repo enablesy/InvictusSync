@@ -38,7 +38,7 @@ public class HistorialCommand implements CommandExecutor {
         }
 
         String targetName = args[0];
-        player.sendMessage(plugin.getMsg("oracle-loading").replace("{player}", targetName));
+        player.sendMessage(plugin.getMsg("lookup-loading").replace("{player}", targetName));
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () ->
             fetchAndOpen(player, targetName)
@@ -96,7 +96,7 @@ public class HistorialCommand implements CommandExecutor {
             }
 
             if (data.sanctions.isEmpty() && data.alts.isEmpty() && data.targetUuid == null) {
-                viewer.sendMessage(plugin.getMsg("oracle-not-found").replace("{player}", targetName));
+                viewer.sendMessage(plugin.getMsg("lookup-not-found").replace("{player}", targetName));
                 return;
             }
 
