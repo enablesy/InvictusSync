@@ -1,12 +1,11 @@
 package lat.invictus.sync;
 
-import lat.invictus.sync.commands.HistorialCommand;
 import lat.invictus.sync.filter.WordFilter;
+import lat.invictus.sync.listeners.LookupListener;
 import lat.invictus.sync.listeners.PlayerConnectionListener;
 import lat.invictus.sync.listeners.RyzenStaffListener;
 import lat.invictus.sync.listeners.SpamListener;
 import lat.invictus.sync.listeners.TicketListener;
-import lat.invictus.sync.menu.HistorialMenu;
 import lat.invictus.sync.tasks.AlertTask;
 import lat.invictus.sync.tasks.StatusTask;
 import lat.invictus.sync.http.WorkerClient;
@@ -31,8 +30,6 @@ public class InvictusSync extends JavaPlugin {
     private AlertTask alertTask;
     private Handler consoleHandler;
     private WordFilter wordFilter;
-    private HistorialMenu historialMenu;
-    private HistorialCommand historialCommand;
     private final CopyOnWriteArrayList<LogRecord> pendingLogs = new CopyOnWriteArrayList<>();
 
     @Override
@@ -41,17 +38,13 @@ public class InvictusSync extends JavaPlugin {
         saveDefaultConfig();
         workerClient = new WorkerClient(this);
         wordFilter = new WordFilter(this);
-        historialMenu = new HistorialMenu(this);
-        historialCommand = new HistorialCommand(this, historialMenu);
 
         getServer().getPluginManager().registerEvents(new RyzenStaffListener(this), this);
         getServer().getPluginManager().registerEvents(new SpamListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
         getServer().getPluginManager().registerEvents(new TicketListener(this), this);
-        getServer().getPluginManager().registerEvents(historialMenu, this);
+        getServer().getPluginManager().registerEvents(new LookupListener(this), this);
 
-        if (getCommand("historial") != null)
-            getCommand("historial").setExecutor(historialCommand);
 
         if (getConfig().getBoolean("sync.status", true)) {
             int interval = getConfig().getInt("status-interval", 30) * 20;
@@ -67,8 +60,6 @@ public class InvictusSync extends JavaPlugin {
         // Diagnóstico: listar comandos registrados
         getLogger().info("[Diagnóstico] Comandos registrados: " +
             getDescription().getCommands().keySet().toString());
-        getLogger().info("[Diagnóstico] Comando 'historial': " +
-            (getCommand("historial") != null ? "ENCONTRADO" : "NO ENCONTRADO"));
 
         if (getConfig().getBoolean("sync.plugins", true))
             getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncPlugins, 100L);
@@ -191,19 +182,6 @@ public class InvictusSync extends JavaPlugin {
             return true;
         }
 
-        if (command.getName().equalsIgnoreCase("lookup")) {
-            if (!(sender instanceof Player)) { sender.sendMessage(getMsg("player-only")); return true; }
-            Player player = (Player) sender;
-            if (!player.hasPermission("invictussync.link")) { player.sendMessage(getMsg("no-permission")); return true; }
-            if (args.length == 0) { player.sendMessage(getMsg("lookup-usage")); return true; }
-            String targetName = args[0];
-            player.sendMessage(getMsg("lookup-loading").replace("{player}", targetName));
-            getServer().getScheduler().runTaskAsynchronously(this, () ->
-                historialCommand.fetchAndOpen(player, targetName)
-            );
-            return true;
-        }
-
         return false;
     }
 
@@ -291,5 +269,4 @@ public class InvictusSync extends JavaPlugin {
     public static InvictusSync getInstance() { return instance; }
     public WorkerClient getWorkerClient() { return workerClient; }
     public WordFilter getWordFilter() { return wordFilter; }
-    public HistorialCommand getHistorialCommand() { return historialCommand; }
 }
