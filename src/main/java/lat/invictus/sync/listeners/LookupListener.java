@@ -7,11 +7,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -41,33 +39,8 @@ public class LookupListener implements Listener {
         public String lastSeen;
     }
 
-    // ── INTERCEPTAR /lookup ANTES QUE ESSENTIALS ─────────────
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onCommand(PlayerCommandPreprocessEvent event) {
-        String msg = event.getMessage();
-        String lower = msg.toLowerCase();
-        if (!lower.startsWith("/lookup ") && !lower.equals("/lookup")) return;
-
-        Player player = event.getPlayer();
-        if (!player.hasPermission("invictussync.link")) return;
-
-        event.setCancelled(true);
-        event.setMessage("/null"); // evitar que otros plugins lo procesen
-
-        String[] parts = msg.split(" ", 2);
-        if (parts.length < 2 || parts[1].trim().isEmpty()) {
-            player.sendMessage(plugin.getMsg("lookup-usage"));
-            return;
-        }
-
-        String targetName = parts[1].trim();
-        player.sendMessage(plugin.getMsg("lookup-loading").replace("{player}", targetName));
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () ->
-            fetchAndOpen(player, targetName)
-        );
-    }
-
     // ── FETCH Y APERTURA DEL MENÚ ─────────────────────────────
+    // Llamado desde InvictusSync.onCommand — hilo asíncrono
     public void fetchAndOpen(Player viewer, String targetName) {
         try {
             String sanctionsResponse = plugin.getWorkerClient().getAndRead(
@@ -84,7 +57,7 @@ public class LookupListener implements Listener {
                 if (!extracted.equals(uuidResponse)) targetUuid = extracted;
             }
 
-            String ipsResponse = null;
+            String ipsResponse;
             if (targetUuid != null) {
                 ipsResponse = plugin.getWorkerClient().getAndRead("/auth/player/ips?uuid=" + targetUuid);
             } else {
