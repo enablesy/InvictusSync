@@ -1,6 +1,8 @@
 package lat.invictus.sync;
 
 import lat.invictus.sync.listeners.RyzenStaffListener;
+import lat.invictus.sync.listeners.SpamListener;
+import lat.invictus.sync.listeners.PlayerConnectionListener;
 import lat.invictus.sync.tasks.StatusTask;
 import lat.invictus.sync.http.WorkerClient;
 import org.bukkit.Bukkit;
@@ -30,6 +32,8 @@ public class InvictusSync extends JavaPlugin {
         saveDefaultConfig();
         workerClient = new WorkerClient(this);
         getServer().getPluginManager().registerEvents(new RyzenStaffListener(this), this);
+        getServer().getPluginManager().registerEvents(new SpamListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this), this);
         if (getConfig().getBoolean("sync.status", true)) {
             int interval = getConfig().getInt("status-interval", 30) * 20;
             statusTask = new StatusTask(this);
@@ -159,6 +163,30 @@ public class InvictusSync extends JavaPlugin {
                 syncPlugins();
                 sender.sendMessage("§aPlugins sincronizados correctamente.");
             });
+            return true;
+        }
+
+        if (command.getName().equalsIgnoreCase("staff")) {
+            // Obtener staff online (excluye vanish)
+            List<String> staffOnline = new ArrayList<>();
+            for (Player p : getServer().getOnlinePlayers()) {
+                if (!p.hasPermission("invictussync.link")) continue; // solo staff tiene este permiso
+                // Verificar vanish — compatible con SuperVanish/PremiumVanish/CMI
+                if (p.hasMetadata("vanished")) {
+                    boolean vanished = p.getMetadata("vanished").stream()
+                        .anyMatch(m -> m.asBoolean());
+                    if (vanished) continue;
+                }
+                staffOnline.add(p.getName());
+            }
+            if (staffOnline.isEmpty()) {
+                sender.sendMessage("§6§l⚔ INVICTUS §r§7— No hay staff conectado en este momento.");
+            } else {
+                sender.sendMessage("§6§l⚔ INVICTUS §r§7— Staff conectado §8(§e" + staffOnline.size() + "§8)§7:");
+                for (String name : staffOnline) {
+                    sender.sendMessage("§8  · §a" + name);
+                }
+            }
             return true;
         }
 
