@@ -1,6 +1,7 @@
 package lat.invictus.sync.listeners;
 
 import lat.invictus.sync.InvictusSync;
+import lat.invictus.sync.InvictusSync;
 import lat.invictus.sync.http.WorkerClient;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -30,6 +31,15 @@ public class TicketListener implements Listener {
 
     private static final long COOLDOWN_MS = 60000;
     private static final String MENU_TITLE = ChatColor.DARK_GRAY + "» " + ChatColor.GOLD + "Abrir Ticket";
+
+    private String menuTitle() {
+        String raw = plugin.getConfig().getString("menus.ticket.title", "» Abrir Ticket");
+        return InvictusSync.translateColors(raw);
+    }
+    private String menuCancel() {
+        String raw = plugin.getConfig().getString("menus.ticket.btn-cancel", "§cCancelar");
+        return InvictusSync.translateColors(raw);
+    }
 
     // Categorías: Material, nombre visible, descripción (lore), color, id interno
     private static final Object[][] CATEGORIES = {
@@ -66,7 +76,7 @@ public class TicketListener implements Listener {
 
     // ── MENÚ (27 slots) ───────────────────────────────────────
     private void openTicketMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
+        Inventory inv = Bukkit.createInventory(null, 27, menuTitle());
 
         // Fondo negro
         ItemStack bg = makeItem(Material.BLACK_STAINED_GLASS_PANE, " ");
@@ -98,7 +108,7 @@ public class TicketListener implements Listener {
         }
 
         // Botón cancelar — slot 22 (centro fila inferior)
-        inv.setItem(22, makeItem(Material.BARRIER, ChatColor.RED + "" + ChatColor.BOLD + "Cancelar",
+        inv.setItem(22, makeItem(Material.BARRIER, menuCancel(),
             Collections.singletonList(ChatColor.GRAY + "Cerrar sin abrir ticket")));
 
         openMenus.add(player.getUniqueId());
@@ -150,6 +160,13 @@ public class TicketListener implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         openMenus.remove(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler
+    public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (openMenus.contains(event.getWhoClicked().getUniqueId()))
+            event.setCancelled(true);
     }
 
     // ── INPUT POR CHAT ────────────────────────────────────────

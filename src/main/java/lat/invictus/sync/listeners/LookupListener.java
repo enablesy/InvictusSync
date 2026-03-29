@@ -1,6 +1,7 @@
 package lat.invictus.sync.listeners;
 
 import lat.invictus.sync.InvictusSync;
+import lat.invictus.sync.InvictusSync;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -21,8 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LookupListener implements Listener {
 
     private final InvictusSync plugin;
-    private final Map<UUID, MenuData> menuData = new ConcurrentHashMap<>();
-    private final Map<UUID, String> openMenus  = new ConcurrentHashMap<>();
+    private final Map<UUID, MenuData> menuData   = new ConcurrentHashMap<>();
+    private final Map<UUID, String>   openMenus  = new ConcurrentHashMap<>();
+    // Datos persistentes que sobreviven al cierre de inventario (para la flecha volver)
+    private final Map<UUID, MenuData> savedData  = new ConcurrentHashMap<>();
 
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd/MM/yy HH:mm");
 
@@ -30,6 +33,15 @@ public class LookupListener implements Listener {
     private static final String TITLE_SANCTIONS = ChatColor.DARK_GRAY + "» " + ChatColor.RED    + "Sanciones";
     private static final String TITLE_ALTS      = ChatColor.DARK_GRAY + "» " + ChatColor.YELLOW + "Cuentas alternativas";
     private static final String TITLE_INFO      = ChatColor.DARK_GRAY + "» " + ChatColor.AQUA   + "Información";
+
+    private String menuTitle(String key, String fallback) {
+        String raw = plugin.getConfig().getString("menus.lookup." + key, fallback);
+        return InvictusSync.translateColors(raw);
+    }
+    private String menuItem(String key, String fallback) {
+        String raw = plugin.getConfig().getString("menus.lookup." + key, fallback);
+        return InvictusSync.translateColors(raw);
+    }
 
     public LookupListener(InvictusSync plugin) {
         this.plugin = plugin;
@@ -86,9 +98,10 @@ public class LookupListener implements Listener {
     // ── MENÚ PRINCIPAL (27 slots) ─────────────────────────────
     private void openMain(Player viewer, MenuData data) {
         menuData.put(viewer.getUniqueId(), data);
+        savedData.put(viewer.getUniqueId(), data); // persistente para la flecha volver
         openMenus.put(viewer.getUniqueId(), "main");
 
-        Inventory inv = Bukkit.createInventory(null, 27, TITLE_MAIN);
+        Inventory inv = Bukkit.createInventory(null, 27, menuTitle("title-main", "» Lookup"));
         fill(inv, Material.BLACK_STAINED_GLASS_PANE);
         border(inv, 27, Material.GRAY_STAINED_GLASS_PANE);
 
@@ -106,7 +119,7 @@ public class LookupListener implements Listener {
 
         // Botón Sanciones — slot 11
         inv.setItem(11, makeItem(Material.BOOK,
-            ChatColor.RED + "" + ChatColor.BOLD + "Sanciones",
+            menuItem("btn-sanctions", "§cSanciones"),
             Arrays.asList(
                 ChatColor.GRAY + "" + data.sanctions.size() + " registradas",
                 "",
@@ -115,7 +128,7 @@ public class LookupListener implements Listener {
 
         // Botón Alts — slot 13
         inv.setItem(13, makeItem(Material.COMPASS,
-            ChatColor.YELLOW + "" + ChatColor.BOLD + "Cuentas alternativas",
+            menuItem("btn-alts", "§6Cuentas alternativas"),
             Arrays.asList(
                 ChatColor.GRAY + "" + data.alts.size() + " detectadas",
                 "",
@@ -124,7 +137,7 @@ public class LookupListener implements Listener {
 
         // Botón Info — slot 15
         inv.setItem(15, makeItem(Material.PAPER,
-            ChatColor.AQUA + "" + ChatColor.BOLD + "Información",
+            menuItem("btn-info", "§bInformación"),
             Arrays.asList(
                 ChatColor.GRAY + "UUID, IPs, fechas de conexión",
                 "",
@@ -132,16 +145,17 @@ public class LookupListener implements Listener {
             )));
 
         // Cerrar — slot 22
-        inv.setItem(22, makeItem(Material.BARRIER, ChatColor.RED + "Cerrar"));
+        inv.setItem(22, makeItem(Material.BARRIER, menuItem("btn-close", "§cCerrar")));
 
         open(viewer, inv);
     }
 
     // ── SUBMENÚ SANCIONES (54 slots) ──────────────────────────
     private void openSanctions(Player viewer, MenuData data) {
+        savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "sanctions");
 
-        Inventory inv = Bukkit.createInventory(null, 54, TITLE_SANCTIONS);
+        Inventory inv = Bukkit.createInventory(null, 54, menuTitle("title-sanctions", "» Sanciones"));
         fill(inv, Material.BLACK_STAINED_GLASS_PANE);
         border(inv, 54, Material.RED_STAINED_GLASS_PANE);
 
@@ -173,15 +187,16 @@ public class LookupListener implements Listener {
                 Collections.singletonList(ChatColor.GRAY + "Este jugador no tiene historial.")));
         }
 
-        inv.setItem(49, makeItem(Material.ARROW, ChatColor.GRAY + "← Volver"));
+        inv.setItem(49, makeItem(Material.ARROW, menuItem("btn-back", "§7← Volver")));
         open(viewer, inv);
     }
 
     // ── SUBMENÚ ALTS (54 slots) ───────────────────────────────
     private void openAlts(Player viewer, MenuData data) {
+        savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "alts");
 
-        Inventory inv = Bukkit.createInventory(null, 54, TITLE_ALTS);
+        Inventory inv = Bukkit.createInventory(null, 54, menuTitle("title-alts", "» Cuentas alternativas"));
         fill(inv, Material.BLACK_STAINED_GLASS_PANE);
         border(inv, 54, Material.YELLOW_STAINED_GLASS_PANE);
 
@@ -212,15 +227,16 @@ public class LookupListener implements Listener {
                 Collections.singletonList(ChatColor.GRAY + "No se encontraron IPs compartidas.")));
         }
 
-        inv.setItem(49, makeItem(Material.ARROW, ChatColor.GRAY + "← Volver"));
+        inv.setItem(49, makeItem(Material.ARROW, menuItem("btn-back", "§7← Volver")));
         open(viewer, inv);
     }
 
     // ── SUBMENÚ INFO (27 slots) ───────────────────────────────
     private void openInfo(Player viewer, MenuData data) {
+        savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "info");
 
-        Inventory inv = Bukkit.createInventory(null, 27, TITLE_INFO);
+        Inventory inv = Bukkit.createInventory(null, 27, menuTitle("title-info", "» Información"));
         fill(inv, Material.BLACK_STAINED_GLASS_PANE);
         border(inv, 27, Material.CYAN_STAINED_GLASS_PANE);
 
@@ -235,7 +251,7 @@ public class LookupListener implements Listener {
         head.setItemMeta(hm);
         inv.setItem(13, head);
 
-        inv.setItem(22, makeItem(Material.ARROW, ChatColor.GRAY + "← Volver"));
+        inv.setItem(22, makeItem(Material.ARROW, menuItem("btn-back", "§7← Volver")));
         open(viewer, inv);
     }
 
@@ -261,13 +277,18 @@ public class LookupListener implements Listener {
                 return;
         }
 
-        MenuData data   = menuData.get(uuid);
+        MenuData data   = menuData.containsKey(uuid) ? menuData.get(uuid) : savedData.get(uuid);
         String   screen = openMenus.get(uuid);
+
+        if (data == null) { viewer.closeInventory(); return; }
 
         if (clicked.getType() == Material.BARRIER) { viewer.closeInventory(); return; }
 
         if (clicked.getType() == Material.ARROW) {
-            openMain(viewer, data);
+            // Recuperar datos guardados y volver al menú principal
+            MenuData saved = savedData.get(uuid);
+            if (saved != null) openMain(viewer, saved);
+            else viewer.closeInventory();
             return;
         }
 
@@ -295,6 +316,19 @@ public class LookupListener implements Listener {
         UUID uuid = event.getPlayer().getUniqueId();
         openMenus.remove(uuid);
         menuData.remove(uuid);
+        // savedData se limpia solo si el jugador no va a abrir otro submenú
+        // Se limpia con un delay de 1 tick para que la flecha volver funcione
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!openMenus.containsKey(uuid)) savedData.remove(uuid);
+        }, 2L);
+    }
+
+    // Fix drag: cancelar arrastre en menús de InvictusSync
+    @EventHandler
+    public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (openMenus.containsKey(event.getWhoClicked().getUniqueId()))
+            event.setCancelled(true);
     }
 
     // ── UTILIDADES ────────────────────────────────────────────
