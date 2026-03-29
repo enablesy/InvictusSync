@@ -107,3 +107,24 @@ menus:
   ticket:
     title: "» Abrir Ticket"
     btn-cancel: "&#FF4444Cancelar"
+    categories:
+      reporte:
+        name: "Reporte de jugador"
+        desc: "Reporta a un jugador por romper\nlas reglas del servidor."
+        color: "RED"
+      bug:
+        name: "Bug / Error"
+        desc: "Informa de un fallo técnico\nque encontraste en el servidor."
+        color: "AQUA"
+      queja:
+        name: "Queja"
+        desc: "Queja sobre el comportamiento\ndel servidor o el staff."
+        color: "YELLOW"
+      sugerencia:
+        name: "Sugerencia"
+        desc: "Propón una mejora o idea\npara el servidor."
+        color: "GREEN"
+      otro:
+        name: "Otro"
+        desc: "Cualquier consulta que no\nencaje en las categorías anteriores."
+        color: "GRAY"
