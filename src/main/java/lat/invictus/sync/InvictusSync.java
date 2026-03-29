@@ -11,6 +11,7 @@ import lat.invictus.sync.tasks.AlertTask;
 import lat.invictus.sync.tasks.StatusTask;
 import lat.invictus.sync.http.WorkerClient;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -240,9 +241,17 @@ public class InvictusSync extends JavaPlugin {
             public void publish(LogRecord record) {
                 Level level = record.getLevel();
                 String loggerName = record.getLoggerName() != null ? record.getLoggerName() : "";
-                boolean isInvictusSync = loggerName.contains("InvictusSync");
+                String message = record.getMessage() != null ? record.getMessage() : "";
+                // Capturar: WARNING+, cualquier log del plugin (nombre o mensaje con InvictusSync)
                 boolean isWarningOrAbove = level.intValue() >= Level.WARNING.intValue();
-                if (isWarningOrAbove || isInvictusSync) pendingLogs.add(record);
+                boolean isPlugin = loggerName.contains("InvictusSync")
+                    || loggerName.contains("lat.invictus")
+                    || message.contains("[InvictusSync]");
+                if (isWarningOrAbove || isPlugin) {
+                    // Filtrar el log de debug de RyzenStaff que no queremos
+                    if (message.contains("DEBUG estados:")) return;
+                    pendingLogs.add(record);
+                }
             }
             @Override public void flush() {}
             @Override public void close() {}
@@ -271,8 +280,42 @@ public class InvictusSync extends JavaPlugin {
 
     public String getMsg(String key) {
         String prefix = getConfig().getString("messages.prefix", "§6§l⚔ INVICTUS §r");
-        String msg = getConfig().getString("messages." + key, "§cMensaje no configurado: " + key);
-        return msg.replace("{prefix}", prefix).replace("&", "§");
+        String msg    = getConfig().getString("messages." + key, "§cMensaje no configurado: " + key);
+        return translateColors(msg.replace("{prefix}", translateColors(prefix)));
+    }
+
+    /**
+     * Traduce & → §, &#rrggbb → §x§r§r§g§g§b§b, y <#rrggbb> (MiniMessage básico)
+     */
+    public static String translateColors(String text) {
+        if (text == null) return "";
+        // Primero: &#rrggbb → §x§r§r§g§g§b§b (formato BungeeCord/Birdflop)
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("&#([A-Fa-f0-9]{6})").matcher(text);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            String hex = m.group(1);
+            StringBuilder replacement = new StringBuilder("§x");
+            for (char c : hex.toCharArray()) replacement.append("§").append(c);
+            m.appendReplacement(sb, replacement.toString());
+        }
+        m.appendTail(sb);
+        text = sb.toString();
+
+        // Segundo: <#rrggbb> → §x§r§r§g§g§b§b (MiniMessage básico)
+        m = java.util.regex.Pattern.compile("<#([A-Fa-f0-9]{6})>").matcher(text);
+        sb = new StringBuffer();
+        while (m.find()) {
+            String hex = m.group(1);
+            StringBuilder replacement = new StringBuilder("§x");
+            for (char c : hex.toCharArray()) replacement.append("§").append(c);
+            m.appendReplacement(sb, replacement.toString());
+        }
+        m.appendTail(sb);
+        text = sb.toString();
+
+        // Tercero: & → §
+        return ChatColor.translateAlternateColorCodes('&', text);
     }
 
     public static InvictusSync getInstance() { return instance; }
