@@ -91,3 +91,19 @@ messages:
   syncplugins-start: "§eSincronizando plugins..."
   syncplugins-done: "§aPlugins sincronizados correctamente."
   reload-done: "§aInvictusSync recargado."
+
+# ── MENÚS (títulos e ítems configurables) ────────────
+menus:
+  lookup:
+    title-main:      "» Lookup"
+    title-sanctions: "» Sanciones"
+    title-alts:      "» Cuentas alternativas"
+    title-info:      "» Información"
+    btn-sanctions:   "&#FF4444Sanciones"
+    btn-alts:        "&#FFAA00Cuentas alternativas"
+    btn-info:        "&#00CCFF Información"
+    btn-close:       "&#FF4444Cerrar"
+    btn-back:        "§7← Volver"
+  ticket:
+    title: "» Abrir Ticket"
+    btn-cancel: "&#FF4444Cancelar"
