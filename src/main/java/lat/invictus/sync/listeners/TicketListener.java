@@ -30,29 +30,38 @@ public class TicketListener implements Listener {
     private final Map<UUID, Long>   cooldowns           = new ConcurrentHashMap<>();
 
     private static final long COOLDOWN_MS = 60000;
-    private static final String MENU_TITLE = ChatColor.DARK_GRAY + "» " + ChatColor.GOLD + "Abrir Ticket";
+
+    // Categorías por defecto — se sobreescriben con lo del config si existe
+    private static final Object[][] DEFAULT_CATEGORIES = {
+        { Material.REDSTONE,      "Reporte de jugador", "Reporta a un jugador por romper\nlas reglas del servidor.",           "RED",    "reporte"    },
+        { Material.WRITABLE_BOOK, "Bug / Error",        "Informa de un fallo técnico\nque encontraste en el servidor.",        "AQUA",   "bug"        },
+        { Material.BOOK,          "Queja",              "Queja sobre el comportamiento\ndel servidor o el staff.",             "YELLOW", "queja"      },
+        { Material.COMPASS,       "Sugerencia",         "Propón una mejora o idea\npara el servidor.",                        "GREEN",  "sugerencia" },
+        { Material.PAPER,         "Otro",               "Cualquier consulta que no\nencaje en las categorías anteriores.",    "GRAY",   "otro"       },
+    };
+    private static final int[] CAT_SLOTS = { 10, 11, 12, 13, 14 };
 
     private String menuTitle() {
-        String raw = plugin.getConfig().getString("menus.ticket.title", "» Abrir Ticket");
-        return InvictusSync.translateColors(raw);
+        return InvictusSync.translateColors(plugin.getConfig().getString("menus.ticket.title", "» Abrir Ticket"));
     }
     private String menuCancel() {
-        String raw = plugin.getConfig().getString("menus.ticket.btn-cancel", "§cCancelar");
-        return InvictusSync.translateColors(raw);
+        return InvictusSync.translateColors(plugin.getConfig().getString("menus.ticket.btn-cancel", "§cCancelar"));
     }
-
-    // Categorías: Material, nombre visible, descripción (lore), color, id interno
-    private static final Object[][] CATEGORIES = {
-        { Material.REDSTONE,      "Reporte de jugador", "Reporta a un jugador por romper\nlas reglas del servidor.",           ChatColor.RED,    "reporte"    },
-        { Material.WRITABLE_BOOK, "Bug / Error",        "Informa de un fallo técnico\nque encontraste en el servidor.",        ChatColor.AQUA,   "bug"        },
-        { Material.BOOK,          "Queja",              "Queja sobre el comportamiento\ndel servidor o el staff.",             ChatColor.YELLOW, "queja"      },
-        { Material.COMPASS,       "Sugerencia",         "Propón una mejora o idea\npara el servidor.",                         ChatColor.GREEN,  "sugerencia" },
-        { Material.PAPER,         "Otro",               "Cualquier consulta que no\nencaje en las categorías anteriores.",     ChatColor.GRAY,   "otro"       },
-    };
-
-    // Slots donde van las 5 categorías en un inventario de 27 (fila del medio, centrado)
-    // Fila 2 (índices 9-17): usamos 10, 11, 12, 13, 14 → centrado en 9 columnas
-    private static final int[] CAT_SLOTS = { 10, 11, 12, 13, 14 };
+    private String catName(int i) {
+        String key = "menus.ticket.categories." + (String) DEFAULT_CATEGORIES[i][4] + ".name";
+        return InvictusSync.translateColors(plugin.getConfig().getString(key, (String) DEFAULT_CATEGORIES[i][1]));
+    }
+    private String catDesc(int i) {
+        return plugin.getConfig().getString("menus.ticket.categories." + (String) DEFAULT_CATEGORIES[i][4] + ".desc",
+            (String) DEFAULT_CATEGORIES[i][2]);
+    }
+    private String catColor(int i) {
+        return plugin.getConfig().getString("menus.ticket.categories." + (String) DEFAULT_CATEGORIES[i][4] + ".color",
+            (String) DEFAULT_CATEGORIES[i][3]);
+    }
+    private ChatColor parseChatColor(String name) {
+        try { return ChatColor.valueOf(name.toUpperCase()); } catch (Exception e) { return ChatColor.GRAY; }
+    }
 
     public TicketListener(InvictusSync plugin) {
         this.plugin = plugin;
@@ -90,12 +99,11 @@ public class TicketListener implements Listener {
         inv.setItem(17, border);                                    // col 8 fila 1
 
         // Categorías en slots 10-14 (fila del medio, interior)
-        for (int i = 0; i < CATEGORIES.length; i++) {
-            Object[]   cat   = CATEGORIES[i];
-            Material   mat   = (Material)  cat[0];
-            String     name  = (String)    cat[1];
-            String     desc  = (String)    cat[2];
-            ChatColor  color = (ChatColor) cat[3];
+        for (int i = 0; i < DEFAULT_CATEGORIES.length; i++) {
+            String name  = catName(i);
+            String desc  = catDesc(i);
+            ChatColor color = parseChatColor(catColor(i));
+            Material mat = (Material) DEFAULT_CATEGORIES[i][0];
 
             List<String> lore = new ArrayList<>();
             for (String line : desc.split("\n"))
@@ -103,8 +111,7 @@ public class TicketListener implements Listener {
             lore.add("");
             lore.add(ChatColor.YELLOW + "» Clic para seleccionar");
 
-            inv.setItem(CAT_SLOTS[i], makeItem(mat,
-                color + "" + ChatColor.BOLD + name, lore));
+            inv.setItem(CAT_SLOTS[i], makeItem(mat, color + "" + ChatColor.BOLD + name, lore));
         }
 
         // Botón cancelar — slot 22 (centro fila inferior)
@@ -136,7 +143,7 @@ public class TicketListener implements Listener {
         int slot = event.getSlot();
         for (int i = 0; i < CAT_SLOTS.length; i++) {
             if (slot != CAT_SLOTS[i]) continue;
-            String catId = (String) CATEGORIES[i][4];
+            String catId = (String) DEFAULT_CATEGORIES[i][4];
             player.closeInventory();
 
             if (catId.equals("reporte")) {
@@ -148,7 +155,7 @@ public class TicketListener implements Listener {
             } else {
                 awaitingInput.put(player.getUniqueId(), catId);
                 player.sendMessage(ChatColor.GOLD + "⚔ " + ChatColor.GRAY
-                    + "Describe tu " + ChatColor.YELLOW + (String) CATEGORIES[i][1]
+                    + "Describe tu " + ChatColor.YELLOW + (String) DEFAULT_CATEGORIES[i][1]
                     + ChatColor.GRAY + ":");
                 player.sendMessage(ChatColor.DARK_GRAY + "(Escribe "
                     + ChatColor.RED + "cancelar" + ChatColor.DARK_GRAY + " para cancelar)");
@@ -247,7 +254,7 @@ public class TicketListener implements Listener {
 
     // ── UTILS ─────────────────────────────────────────────────
     private String getCatLabel(String catId) {
-        for (Object[] cat : CATEGORIES)
+        for (Object[] cat : DEFAULT_CATEGORIES)
             if (cat[4].equals(catId)) return (String) cat[1];
         return catId;
     }

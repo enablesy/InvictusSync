@@ -22,10 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LookupListener implements Listener {
 
     private final InvictusSync plugin;
-    private final Map<UUID, MenuData> menuData   = new ConcurrentHashMap<>();
-    private final Map<UUID, String>   openMenus  = new ConcurrentHashMap<>();
-    // Datos persistentes que sobreviven al cierre de inventario (para la flecha volver)
-    private final Map<UUID, MenuData> savedData  = new ConcurrentHashMap<>();
+    private final Map<UUID, MenuData> menuData     = new ConcurrentHashMap<>();
+    private final Map<UUID, String>   openMenus    = new ConcurrentHashMap<>();
+    private final Map<UUID, MenuData> savedData    = new ConcurrentHashMap<>();
+    private final Set<UUID>           transitioning = ConcurrentHashMap.newKeySet();
 
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd/MM/yy HH:mm");
 
@@ -97,8 +97,9 @@ public class LookupListener implements Listener {
 
     // ── MENÚ PRINCIPAL (27 slots) ─────────────────────────────
     private void openMain(Player viewer, MenuData data) {
+        transitioning.add(viewer.getUniqueId());
         menuData.put(viewer.getUniqueId(), data);
-        savedData.put(viewer.getUniqueId(), data); // persistente para la flecha volver
+        savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "main");
 
         Inventory inv = Bukkit.createInventory(null, 27, menuTitle("title-main", "» Lookup"));
@@ -152,6 +153,7 @@ public class LookupListener implements Listener {
 
     // ── SUBMENÚ SANCIONES (54 slots) ──────────────────────────
     private void openSanctions(Player viewer, MenuData data) {
+        transitioning.add(viewer.getUniqueId());
         savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "sanctions");
 
@@ -193,6 +195,7 @@ public class LookupListener implements Listener {
 
     // ── SUBMENÚ ALTS (54 slots) ───────────────────────────────
     private void openAlts(Player viewer, MenuData data) {
+        transitioning.add(viewer.getUniqueId());
         savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "alts");
 
@@ -233,6 +236,7 @@ public class LookupListener implements Listener {
 
     // ── SUBMENÚ INFO (27 slots) ───────────────────────────────
     private void openInfo(Player viewer, MenuData data) {
+        transitioning.add(viewer.getUniqueId());
         savedData.put(viewer.getUniqueId(), data);
         openMenus.put(viewer.getUniqueId(), "info");
 
@@ -314,20 +318,20 @@ public class LookupListener implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
+        if (transitioning.remove(uuid)) {
+            // Estamos navegando entre submenús — no limpiar
+            return;
+        }
         openMenus.remove(uuid);
         menuData.remove(uuid);
-        // savedData se limpia solo si el jugador no va a abrir otro submenú
-        // Se limpia con un delay de 1 tick para que la flecha volver funcione
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (!openMenus.containsKey(uuid)) savedData.remove(uuid);
-        }, 2L);
+        savedData.remove(uuid);
     }
 
-    // Fix drag: cancelar arrastre en menús de InvictusSync
     @EventHandler
     public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
-        if (openMenus.containsKey(event.getWhoClicked().getUniqueId()))
+        UUID uuid = event.getWhoClicked().getUniqueId();
+        if (openMenus.containsKey(uuid) || transitioning.contains(uuid))
             event.setCancelled(true);
     }
 
