@@ -62,8 +62,8 @@ public class InvictusSync extends JavaPlugin {
         alertTask = new AlertTask(this);
         alertTask.runTaskTimerAsynchronously(this, 200L, alertInterval);
 
-        getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
-        getLogger().info("[Diagnóstico] Comandos registrados: " +
+        log("&aHabilitado &7— conectado a &e" + getConfig().getString("worker-url"));
+        log("&7Comandos registrados: " +
             getDescription().getCommands().keySet().toString());
         // Log con color usando Bukkit console sender
         Bukkit.getConsoleSender().sendMessage(translateColors(
@@ -83,12 +83,12 @@ public class InvictusSync extends JavaPlugin {
         if (alertTask != null) alertTask.cancel();
         if (workerClient != null) workerClient.shutdown();
         if (consoleHandler != null) Bukkit.getLogger().removeHandler(consoleHandler);
-        getLogger().info("InvictusSync deshabilitado.");
+        log("&7Deshabilitado.");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        getLogger().info("[Diagnóstico] onCommand recibido: /" + command.getName() + " de " + sender.getName());
+        // debug log eliminado
 
         // ── /invictussync ─────────────────────────────────────
         if (command.getName().equalsIgnoreCase("invictussync")) {
@@ -325,4 +325,19 @@ public class InvictusSync extends JavaPlugin {
     public WorkerClient getWorkerClient() { return workerClient; }
     public WordFilter getWordFilter() { return wordFilter; }
     public LookupListener getLookupListener() { return lookupListener; }
+
+    /** Log informativo con color dorado en consola */
+    public void log(String message) {
+        Bukkit.getConsoleSender().sendMessage(
+            translateColors("&#C8A44A[InvictusSync] &r" + message)
+        );
+    }
+
+    /** Warning — va al logger de Bukkit Y a la consola en rojo */
+    public void warn(String message) {
+        getLogger().warning(message);
+        Bukkit.getConsoleSender().sendMessage(
+            translateColors("&c[InvictusSync] &7" + message)
+        );
+    }
 }
