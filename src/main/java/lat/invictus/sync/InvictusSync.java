@@ -65,6 +65,9 @@ public class InvictusSync extends JavaPlugin {
         getLogger().info("InvictusSync habilitado. Conectado a: " + getConfig().getString("worker-url"));
         getLogger().info("[Diagnóstico] Comandos registrados: " +
             getDescription().getCommands().keySet().toString());
+        // Log con color usando Bukkit console sender
+        Bukkit.getConsoleSender().sendMessage(translateColors(
+            "&#C8A44A&l[InvictusSync] &r&#C8A44AHabilitado &7— conectado a &e" + getConfig().getString("worker-url")));
 
         if (getConfig().getBoolean("sync.plugins", true))
             getServer().getScheduler().runTaskLaterAsynchronously(this, this::syncPlugins, 100L);
