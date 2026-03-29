@@ -82,7 +82,10 @@ public class InvictusSync extends JavaPlugin {
         if (statusTask != null) statusTask.cancel();
         if (alertTask != null) alertTask.cancel();
         if (workerClient != null) workerClient.shutdown();
-        if (consoleHandler != null) Bukkit.getLogger().removeHandler(consoleHandler);
+        if (consoleHandler != null) {
+            Bukkit.getLogger().removeHandler(consoleHandler);
+            java.util.logging.Logger.getLogger("").removeHandler(consoleHandler);
+        }
         log("&7Deshabilitado.");
     }
 
@@ -260,6 +263,8 @@ public class InvictusSync extends JavaPlugin {
             @Override public void close() {}
         };
         Bukkit.getLogger().addHandler(consoleHandler);
+        // También adjuntar al logger raíz para capturar todos los logs del servidor
+        java.util.logging.Logger.getLogger("").addHandler(consoleHandler);
     }
 
     private void flushLogs() {
@@ -326,16 +331,19 @@ public class InvictusSync extends JavaPlugin {
     public WordFilter getWordFilter() { return wordFilter; }
     public LookupListener getLookupListener() { return lookupListener; }
 
-    /** Log informativo con color dorado en consola */
+    /** Log informativo con color dorado en consola — también pasa por el logger para captura */
     public void log(String message) {
+        // Logger de Java para que el consoleHandler lo capture y envíe al Worker
+        getLogger().info(ChatColor.stripColor(translateColors(message)));
+        // Console sender para el color en pantalla
         Bukkit.getConsoleSender().sendMessage(
             translateColors("&#C8A44A[InvictusSync] &r" + message)
         );
     }
 
-    /** Warning — va al logger de Bukkit Y a la consola en rojo */
+    /** Warning — logger de Bukkit para latest.log Y console sender en rojo */
     public void warn(String message) {
-        getLogger().warning(message);
+        getLogger().warning(ChatColor.stripColor(translateColors(message)));
         Bukkit.getConsoleSender().sendMessage(
             translateColors("&c[InvictusSync] &7" + message)
         );
