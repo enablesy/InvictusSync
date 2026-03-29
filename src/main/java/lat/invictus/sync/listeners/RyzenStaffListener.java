@@ -43,7 +43,7 @@ public class RyzenStaffListener implements Listener {
         try {
             ryzen = (RyzenStaff) Bukkit.getPluginManager().getPlugin("RyzenStaff");
             if (ryzen == null) plugin.getLogger().warning("RyzenStaff no encontrado.");
-            else               plugin.getLogger().info("RyzenStaff encontrado. Sincronizacion activa.");
+            else               plugin.log("&aRyzenStaff encontrado. Sincronización activa.");
         } catch (Exception e) {
             plugin.getLogger().warning("Error al cargar RyzenStaff: " + e.getMessage());
         }
@@ -74,13 +74,13 @@ public class RyzenStaffListener implements Listener {
                     boolean wasInStaffMode = staffModeState.getOrDefault(uuid, false);
                     if (inStaffMode && !wasInStaffMode) {
                         staffModeState.put(uuid, true);
-                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " entro al modo staff.");
+                        plugin.log("&e" + player.getName() + " &7entró al modo staff.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"staffmode_on\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Entro al modo staff\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     } else if (!inStaffMode && wasInStaffMode) {
                         staffModeState.put(uuid, false);
-                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " salio del modo staff.");
+                        plugin.log("&e" + player.getName() + " &7salió del modo staff.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"staffmode_off\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Salio del modo staff\"}",
                             WorkerClient.esc(player.getName()), uuid));
@@ -105,19 +105,19 @@ public class RyzenStaffListener implements Listener {
 
                     if (inAdminChat && !wasInAdminChat) {
                         adminChatState.put(uuid, true);
-                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " activo el admin chat.");
+                        plugin.log("&e" + player.getName() + " &7activó el admin chat.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Activo el admin chat\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     } else if (!inAdminChat && wasInAdminChat) {
                         adminChatState.put(uuid, false);
-                        plugin.getLogger().info("[InvictusSync] " + player.getName() + " desactivo el admin chat.");
+                        plugin.log("&e" + player.getName() + " &7desactivó el admin chat.");
                         client.post("/mc/activity", String.format(
                             "{\"type\":\"adminchat\",\"staff\":\"%s\",\"staffUuid\":\"%s\",\"detail\":\"Desactivo el admin chat\"}",
                             WorkerClient.esc(player.getName()), uuid));
                     }
                 }
-                if (doDebug && debugSummary.length() > 28) plugin.getLogger().info(debugSummary.toString());
+                // debug eliminado
             } catch (Exception e) {
                 plugin.getLogger().warning("[InvictusSync] Error en polling: " + e.getClass().getName() + ": " + e.getMessage());
                 for (StackTraceElement el : e.getStackTrace()) {
@@ -141,7 +141,7 @@ public class RyzenStaffListener implements Listener {
             String duration = "";
             try { duration = p.getType().isTemp() ? p.getDuration(false) : ""; } catch (Exception ignored) {}
 
-            plugin.getLogger().info("[InvictusSync] Sancion aplicada: " + type + " a " + p.getName() + " por " + p.getOperator());
+            plugin.log("&cSanción &7" + type.toUpperCase() + " aplicada a &e" + p.getName() + " &7por &e" + p.getOperator());
             client.post("/mc/sanction", String.format(
                 "{\"type\":\"%s\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"%s\",\"duration\":\"%s\"}",
                 type,
@@ -162,7 +162,7 @@ public class RyzenStaffListener implements Listener {
             String revokeType = mapRevokeType(p.getType());
             if (revokeType == null) return;
 
-            plugin.getLogger().info("[InvictusSync] Sancion revocada: " + revokeType + " a " + p.getName());
+            plugin.log("&aSanción &7" + revokeType.toUpperCase() + " revocada a &e" + p.getName());
             client.post("/mc/sanction", String.format(
                 "{\"type\":\"%s\",\"target\":\"%s\",\"staff\":\"%s\",\"reason\":\"Revocado\",\"duration\":\"\"}",
                 revokeType,

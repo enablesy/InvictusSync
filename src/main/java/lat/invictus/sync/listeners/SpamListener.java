@@ -110,7 +110,7 @@ public class SpamListener implements Listener {
             WorkerClient.esc(detail)
         );
         plugin.getWorkerClient().post("/mc/report", json);
-        plugin.getLogger().info("[SpamDetector] Reporte auto: " + player.getName() + " — " + type);
+        plugin.log("&c[SpamDetector] &7Reporte auto: &e" + player.getName() + " &7— " + type);
 
         String staffMsg = plugin.getMsg("spam-staff-notify")
             .replace("{player}", player.getName())
