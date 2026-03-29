@@ -268,6 +268,7 @@ public class InvictusSync extends JavaPlugin {
     }
 
     private void flushLogs() {
+        Bukkit.getConsoleSender().sendMessage("§e[InvictusSync-Debug] flushLogs ejecutado, pendingLogs: " + pendingLogs.size());
         if (pendingLogs.isEmpty()) return;
         List<LogRecord> toSend = new ArrayList<>(pendingLogs);
         pendingLogs.clear();
